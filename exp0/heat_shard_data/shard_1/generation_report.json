@@ -1,0 +1,18 @@
+{
+  "seed": 144,
+  "source": "ithor",
+  "sample_count": 6,
+  "scene_count": 2,
+  "group_counts": {
+    "heat": 6
+  },
+  "scene_counts": {
+    "FloorPlan4": 3,
+    "FloorPlan1": 3
+  },
+  "counterfactual_ratio": 0.0,
+  "rejections": {
+    "insufficient_visible_objects": 5,
+    "no_candidate:heat": 15
+  }
+}

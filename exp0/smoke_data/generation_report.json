@@ -1,0 +1,15 @@
+{
+  "seed": 42,
+  "source": "procthor",
+  "sample_count": 2,
+  "scene_count": 2,
+  "group_counts": {
+    "pickup": 2
+  },
+  "scene_counts": {
+    "procthor_train_03771": 1,
+    "procthor_train_06672": 1
+  },
+  "counterfactual_ratio": 0.0,
+  "rejections": {}
+}

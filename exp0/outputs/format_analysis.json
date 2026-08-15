@@ -1,0 +1,193 @@
+{
+  "prediction_count": 1680,
+  "unique_keys": 1680,
+  "conditions": {
+    "A": {
+      "count": 240,
+      "strict_em": 0.0,
+      "strict_step": 0.0,
+      "strict_structure": 0.020833333333333332,
+      "strict_nonempty": 0.020833333333333332,
+      "lenient_em": 0.0,
+      "lenient_step": 0.0125,
+      "lenient_nonempty": 0.9458333333333333,
+      "elapsed_seconds": 1.32753375,
+      "top_invalid_action_names": [
+        [
+          "ActionName",
+          1
+        ]
+      ]
+    },
+    "A_prime": {
+      "count": 240,
+      "strict_em": 0.0,
+      "strict_step": 0.0,
+      "strict_structure": 0.004166666666666667,
+      "strict_nonempty": 0.004166666666666667,
+      "lenient_em": 0.0,
+      "lenient_step": 0.00625,
+      "lenient_nonempty": 0.9291666666666667,
+      "elapsed_seconds": 1.4628054166666666,
+      "top_invalid_action_names": []
+    },
+    "B_json": {
+      "count": 240,
+      "strict_em": 0.0,
+      "strict_step": 0.0,
+      "strict_structure": 0.004166666666666667,
+      "strict_nonempty": 0.004166666666666667,
+      "lenient_em": 0.0,
+      "lenient_step": 0.004166666666666667,
+      "lenient_nonempty": 0.9916666666666667,
+      "elapsed_seconds": 1.6088666666666667,
+      "top_invalid_action_names": []
+    },
+    "B_natural": {
+      "count": 240,
+      "strict_em": 0.0,
+      "strict_step": 0.0,
+      "strict_structure": 0.0,
+      "strict_nonempty": 0.0,
+      "lenient_em": 0.0,
+      "lenient_step": 0.06493055555555556,
+      "lenient_nonempty": 0.9875,
+      "elapsed_seconds": 1.7219483333333334,
+      "top_invalid_action_names": []
+    },
+    "B_triples": {
+      "count": 240,
+      "strict_em": 0.0,
+      "strict_step": 0.0,
+      "strict_structure": 0.008333333333333333,
+      "strict_nonempty": 0.008333333333333333,
+      "lenient_em": 0.0,
+      "lenient_step": 0.02395833333333333,
+      "lenient_nonempty": 0.8625,
+      "elapsed_seconds": 1.68991375,
+      "top_invalid_action_names": [
+        [
+          "PickUpObject",
+          2
+        ]
+      ]
+    },
+    "C": {
+      "count": 240,
+      "strict_em": 0.0,
+      "strict_step": 0.0,
+      "strict_structure": 0.24166666666666667,
+      "strict_nonempty": 0.24166666666666667,
+      "lenient_em": 0.0,
+      "lenient_step": 0.041666666666666664,
+      "lenient_nonempty": 0.7291666666666666,
+      "elapsed_seconds": 1.48441,
+      "top_invalid_action_names": [
+        [
+          "ActionName",
+          58
+        ]
+      ]
+    },
+    "D": {
+      "count": 240,
+      "strict_em": 0.0,
+      "strict_step": 0.0,
+      "strict_structure": 0.5875,
+      "strict_nonempty": 0.5958333333333333,
+      "lenient_em": 0.004166666666666667,
+      "lenient_step": 0.008333333333333333,
+      "lenient_nonempty": 0.37083333333333335,
+      "elapsed_seconds": 1.5047391666666667,
+      "top_invalid_action_names": [
+        [
+          "ActionName",
+          143
+        ]
+      ]
+    }
+  },
+  "top_unparseable_plan_lines": [
+    [
+      "GotoLocation PickupObject",
+      544
+    ],
+    [
+      "PutObject",
+      465
+    ],
+    [
+      "PutObject Potato",
+      106
+    ],
+    [
+      "SliceObject",
+      104
+    ],
+    [
+      "CloseObject",
+      92
+    ],
+    [
+      "OpenObject Fridge",
+      52
+    ],
+    [
+      "ToggleObject OpenDrawer",
+      43
+    ],
+    [
+      "OpenObject",
+      41
+    ],
+    [
+      "CleanObject",
+      39
+    ],
+    [
+      "GotoLocation PickUpObject",
+      37
+    ],
+    [
+      "PutObject CellPhone",
+      37
+    ],
+    [
+      "CloseObject Fridge",
+      33
+    ],
+    [
+      "HeatObject",
+      33
+    ],
+    [
+      "PutObject Fridge",
+      32
+    ],
+    [
+      "ToggleObject",
+      30
+    ],
+    [
+      "GotoLocation Potato",
+      30
+    ],
+    [
+      "OpenObject CellPhone",
+      28
+    ],
+    [
+      "OpenObject Drawer",
+      27
+    ],
+    [
+      "PickupObject Potato",
+      26
+    ],
+    [
+      "CloseObject Laptop",
+      20
+    ]
+  ],
+  "note": "Lenient metrics are supplemental diagnostics only; official Exp 0 metrics remain unchanged."
+}

@@ -14,7 +14,6 @@ venv/
 .mypy_cache/
 
 # Training outputs and large model checkpoints
-outputs/
 checkpoints/
 *.safetensors
 *.ckpt

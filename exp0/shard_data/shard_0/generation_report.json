@@ -1,0 +1,32 @@
+{
+  "seed": 42,
+  "source": "procthor",
+  "sample_count": 54,
+  "scene_count": 5,
+  "group_counts": {
+    "clean": 8,
+    "open_close": 6,
+    "pickup": 8,
+    "counterfactual_put": 20,
+    "slice": 6,
+    "toggle": 6
+  },
+  "scene_counts": {
+    "procthor_train_03771": 12,
+    "procthor_train_06672": 12,
+    "procthor_train_07261": 12,
+    "procthor_train_00760": 7,
+    "procthor_train_03779": 11
+  },
+  "counterfactual_ratio": 0.37037037037037035,
+  "rejections": {
+    "no_candidate:toggle": 15,
+    "no_candidate:open_close": 7,
+    "camera_teleport_failed": 1,
+    "no_candidate:slice": 27,
+    "insufficient_visible_objects": 26,
+    "no_candidate:clean": 9,
+    "no_candidate:pickup": 1,
+    "simulation_failed:counterfactual_put": 4
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "conditions": {
+    "A": {
+      "count": 240.0,
+      "sequence_exact_match": 0.0,
+      "step_level_match": 0.0,
+      "structure_valid": 0.020833333333333332,
+      "action_vocab_violation_rate": 0.004166666666666667,
+      "object_vocab_violation_rate": null
+    },
+    "A_prime": {
+      "count": 240.0,
+      "sequence_exact_match": 0.0,
+      "step_level_match": 0.0,
+      "structure_valid": 0.004166666666666667,
+      "action_vocab_violation_rate": 0.0,
+      "object_vocab_violation_rate": null
+    },
+    "B_json": {
+      "count": 240.0,
+      "sequence_exact_match": 0.0,
+      "step_level_match": 0.0,
+      "structure_valid": 0.004166666666666667,
+      "action_vocab_violation_rate": 0.0,
+      "object_vocab_violation_rate": null
+    },
+    "B_natural": {
+      "count": 240.0,
+      "sequence_exact_match": 0.0,
+      "step_level_match": 0.0,
+      "structure_valid": 0.0,
+      "action_vocab_violation_rate": 0.0,
+      "object_vocab_violation_rate": null
+    },
+    "B_triples": {
+      "count": 240.0,
+      "sequence_exact_match": 0.0,
+      "step_level_match": 0.0,
+      "structure_valid": 0.008333333333333333,
+      "action_vocab_violation_rate": 0.0022222222222222222,
+      "object_vocab_violation_rate": null
+    },
+    "C": {
+      "count": 240.0,
+      "sequence_exact_match": 0.0,
+      "step_level_match": 0.0,
+      "structure_valid": 0.24166666666666667,
+      "action_vocab_violation_rate": 0.24166666666666667,
+      "object_vocab_violation_rate": null
+    },
+    "D": {
+      "count": 240.0,
+      "sequence_exact_match": 0.0,
+      "step_level_match": 0.0,
+      "structure_valid": 0.5875,
+      "action_vocab_violation_rate": 0.5958333333333333,
+      "object_vocab_violation_rate": null
+    }
+  },
+  "diagnosis": {
+    "scores": {
+      "A": 0.0,
+      "A_prime": 0.0,
+      "B_macro": 0.0,
+      "C": 0.0,
+      "D": 0.0
+    },
+    "deltas": {
+      "A_minus_A_prime": 0.0,
+      "B_minus_A": 0.0,
+      "C_minus_A": 0.0
+    },
+    "floor_effect": true,
+    "conclusions": [
+      "D 较低：先处理输出格式、动作词表或结构合法性问题。",
+      "A 与 A′ 接近：模型没有有效使用图像。",
+      "A 与 B 接近且都低：reasoning/planning 是主要瓶颈。",
+      "C 接近 B：感知损失可被正确空间事实补偿。",
+      "A/B/C 全部接近地板：按总纲升级为各条件约 300 step 短 LoRA 后重测。"
+    ]
+  }
+}

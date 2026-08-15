@@ -1,0 +1,91 @@
+{
+  "seed": 43,
+  "source": "ithor",
+  "sample_count": 24,
+  "scene_count": 3,
+  "group_counts": {
+    "heat": 24
+  },
+  "scene_counts": {
+    "FloorPlan3": 6,
+    "FloorPlan4": 12,
+    "FloorPlan1": 6
+  },
+  "counterfactual_ratio": 0.0,
+  "rejections": {
+    "no_candidate:heat": 41,
+    "insufficient_visible_objects": 8
+  },
+  "shard_reports": [
+    {
+      "seed": 144,
+      "source": "ithor",
+      "sample_count": 6,
+      "scene_count": 2,
+      "group_counts": {
+        "heat": 6
+      },
+      "scene_counts": {
+        "FloorPlan3": 3,
+        "FloorPlan4": 3
+      },
+      "counterfactual_ratio": 0.0,
+      "rejections": {
+        "no_candidate:heat": 6
+      }
+    },
+    {
+      "seed": 144,
+      "source": "ithor",
+      "sample_count": 6,
+      "scene_count": 2,
+      "group_counts": {
+        "heat": 6
+      },
+      "scene_counts": {
+        "FloorPlan4": 3,
+        "FloorPlan1": 3
+      },
+      "counterfactual_ratio": 0.0,
+      "rejections": {
+        "insufficient_visible_objects": 5,
+        "no_candidate:heat": 15
+      }
+    },
+    {
+      "seed": 43,
+      "source": "ithor",
+      "sample_count": 6,
+      "scene_count": 2,
+      "group_counts": {
+        "heat": 6
+      },
+      "scene_counts": {
+        "FloorPlan3": 3,
+        "FloorPlan4": 3
+      },
+      "counterfactual_ratio": 0.0,
+      "rejections": {
+        "no_candidate:heat": 8
+      }
+    },
+    {
+      "seed": 43,
+      "source": "ithor",
+      "sample_count": 6,
+      "scene_count": 2,
+      "group_counts": {
+        "heat": 6
+      },
+      "scene_counts": {
+        "FloorPlan4": 3,
+        "FloorPlan1": 3
+      },
+      "counterfactual_ratio": 0.0,
+      "rejections": {
+        "no_candidate:heat": 12,
+        "insufficient_visible_objects": 3
+      }
+    }
+  ]
+}
