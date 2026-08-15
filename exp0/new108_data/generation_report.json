@@ -1,0 +1,159 @@
+{
+  "seed": 1042,
+  "source": "procthor",
+  "sample_count": 108,
+  "scene_count": 15,
+  "group_counts": {
+    "counterfactual_put": 40,
+    "pickup": 16,
+    "open_close": 12,
+    "clean": 16,
+    "slice": 12,
+    "toggle": 12
+  },
+  "scene_counts": {
+    "procthor_train_03783": 12,
+    "procthor_train_09190": 9,
+    "procthor_train_02735": 4,
+    "procthor_train_04622": 2,
+    "procthor_train_01668": 12,
+    "procthor_train_06500": 10,
+    "procthor_train_07642": 5,
+    "procthor_train_04721": 12,
+    "procthor_train_05922": 11,
+    "procthor_train_07667": 3,
+    "procthor_train_02472": 1,
+    "procthor_train_01475": 12,
+    "procthor_train_02948": 12,
+    "procthor_train_05394": 2,
+    "procthor_train_03170": 1
+  },
+  "counterfactual_ratio": 0.37037037037037035,
+  "rejections": {
+    "simulation_failed:counterfactual_put": 11,
+    "no_candidate:open_close": 22,
+    "no_candidate:toggle": 105,
+    "no_candidate:clean": 12,
+    "insufficient_visible_objects": 142,
+    "no_candidate:slice": 87,
+    "no_candidate:pickup": 1,
+    "camera_teleport_failed": 1
+  },
+  "shard_reports": [
+    {
+      "seed": 1042,
+      "source": "procthor",
+      "sample_count": 27,
+      "scene_count": 4,
+      "group_counts": {
+        "counterfactual_put": 10,
+        "pickup": 4,
+        "open_close": 3,
+        "clean": 4,
+        "slice": 3,
+        "toggle": 3
+      },
+      "scene_counts": {
+        "procthor_train_03783": 12,
+        "procthor_train_09190": 9,
+        "procthor_train_02735": 4,
+        "procthor_train_04622": 2
+      },
+      "counterfactual_ratio": 0.37037037037037035,
+      "rejections": {
+        "simulation_failed:counterfactual_put": 5,
+        "no_candidate:open_close": 6,
+        "no_candidate:toggle": 39,
+        "no_candidate:clean": 6,
+        "insufficient_visible_objects": 21,
+        "no_candidate:slice": 25
+      }
+    },
+    {
+      "seed": 1042,
+      "source": "procthor",
+      "sample_count": 27,
+      "scene_count": 3,
+      "group_counts": {
+        "counterfactual_put": 10,
+        "clean": 4,
+        "pickup": 4,
+        "toggle": 3,
+        "slice": 3,
+        "open_close": 3
+      },
+      "scene_counts": {
+        "procthor_train_01668": 12,
+        "procthor_train_06500": 10,
+        "procthor_train_07642": 5
+      },
+      "counterfactual_ratio": 0.37037037037037035,
+      "rejections": {
+        "insufficient_visible_objects": 27,
+        "no_candidate:toggle": 9,
+        "no_candidate:slice": 6,
+        "no_candidate:pickup": 1,
+        "no_candidate:clean": 1,
+        "no_candidate:open_close": 9
+      }
+    },
+    {
+      "seed": 1042,
+      "source": "procthor",
+      "sample_count": 27,
+      "scene_count": 4,
+      "group_counts": {
+        "open_close": 3,
+        "counterfactual_put": 10,
+        "pickup": 4,
+        "clean": 4,
+        "slice": 3,
+        "toggle": 3
+      },
+      "scene_counts": {
+        "procthor_train_04721": 12,
+        "procthor_train_05922": 11,
+        "procthor_train_07667": 3,
+        "procthor_train_02472": 1
+      },
+      "counterfactual_ratio": 0.37037037037037035,
+      "rejections": {
+        "simulation_failed:counterfactual_put": 4,
+        "insufficient_visible_objects": 58,
+        "no_candidate:toggle": 17,
+        "no_candidate:clean": 2,
+        "no_candidate:open_close": 2,
+        "no_candidate:slice": 56,
+        "camera_teleport_failed": 1
+      }
+    },
+    {
+      "seed": 1042,
+      "source": "procthor",
+      "sample_count": 27,
+      "scene_count": 4,
+      "group_counts": {
+        "toggle": 3,
+        "slice": 3,
+        "clean": 4,
+        "counterfactual_put": 10,
+        "pickup": 4,
+        "open_close": 3
+      },
+      "scene_counts": {
+        "procthor_train_01475": 12,
+        "procthor_train_02948": 12,
+        "procthor_train_05394": 2,
+        "procthor_train_03170": 1
+      },
+      "counterfactual_ratio": 0.37037037037037035,
+      "rejections": {
+        "insufficient_visible_objects": 36,
+        "no_candidate:open_close": 5,
+        "no_candidate:toggle": 40,
+        "no_candidate:clean": 3,
+        "simulation_failed:counterfactual_put": 2
+      }
+    }
+  ]
+}
