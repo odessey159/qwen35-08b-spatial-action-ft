@@ -6,7 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-from exp0.generate_cot_data import parse_response_sections, render_response
+from exp0.generate_cot_data import (
+    extract_task_relevant_state,
+    parse_response_sections,
+    render_response,
+)
 from exp0.prompts import system_prompt
 from exp0.subgoal_abstraction import (
     abstract_subgoals,
@@ -19,6 +23,7 @@ from .data import _choose_validation_indices, _read_jsonl, _write_json, _write_j
 
 
 FORMATS = {"action", "plan_action", "cot"}
+SOURCE_FORMATS = {"cot", "raw_simulator"}
 
 
 @dataclass(frozen=True)
@@ -35,6 +40,64 @@ class CotSample:
 def uses_embodied_format(config: dict[str, Any]) -> bool:
     data = config.get("data")
     return isinstance(data, dict) and data.get("response_format") is not None
+
+
+def _source_format(data: dict[str, Any]) -> str:
+    value = data.get("source_format", "cot")
+    if not isinstance(value, str) or value not in SOURCE_FORMATS:
+        raise TrainingConfigError(
+            f"data.source_format must be one of {sorted(SOURCE_FORMATS)}"
+        )
+    return value
+
+
+def _expected_source_samples(data: dict[str, Any]) -> int | None:
+    value = data.get("expected_source_samples")
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise TrainingConfigError("data.expected_source_samples must be a positive integer")
+    return value
+
+
+def _source_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _identity_image_metadata(
+    row: dict[str, Any], index: int, source_dir: Path
+) -> tuple[str, Path, str, dict[str, Any]]:
+    sample_id = str(row.get("sample_id") or f"row_{index:07d}")
+    image_value = row.get("image")
+    instruction = row.get("instruction", row.get("prompt"))
+    if not isinstance(image_value, str) or not image_value.strip():
+        raise TrainingConfigError(f"{sample_id}: image is required")
+    if not isinstance(instruction, str) or not instruction.strip():
+        raise TrainingConfigError(f"{sample_id}: instruction is required")
+    image = Path(image_value).expanduser()
+    if not image.is_absolute():
+        image = source_dir / image
+    image = image.resolve()
+    if not image.is_file():
+        raise TrainingConfigError(f"{sample_id}: image does not exist: {image}")
+    metadata_value = row.get("_meta", row.get("meta", row.get("metadata", {})))
+    if not isinstance(metadata_value, dict):
+        raise TrainingConfigError(f"{sample_id}: metadata must be an object")
+    return sample_id, image, instruction.strip(), dict(metadata_value)
+
+
+def _validate_simulator_metadata(
+    sample_id: str, metadata: dict[str, Any], require_sim_verified: bool
+) -> None:
+    is_verified = metadata.get("sim_verified") is True or metadata.get("verified") is True
+    if require_sim_verified and not is_verified:
+        raise TrainingConfigError(f"{sample_id}: simulator verification is required")
+    if metadata.get("target_visible") is False:
+        raise TrainingConfigError(f"{sample_id}: target_visible must not be false")
 
 
 def _text_list(value: Any, name: str, sample_id: str) -> list[str]:
@@ -68,19 +131,9 @@ def _normalize(
     verified: bool,
     response_format: str,
 ) -> CotSample:
-    sample_id = str(row.get("sample_id") or f"row_{index:07d}")
-    image_value = row.get("image")
-    instruction = row.get("instruction", row.get("prompt"))
-    if not isinstance(image_value, str) or not image_value.strip():
-        raise TrainingConfigError(f"{sample_id}: image is required")
-    if not isinstance(instruction, str) or not instruction.strip():
-        raise TrainingConfigError(f"{sample_id}: instruction is required")
-    image = Path(image_value).expanduser()
-    if not image.is_absolute():
-        image = source_dir / image
-    image = image.resolve()
-    if not image.is_file():
-        raise TrainingConfigError(f"{sample_id}: image does not exist: {image}")
+    sample_id, image, instruction, metadata = _identity_image_metadata(
+        row, index, source_dir
+    )
 
     sections = _sections(row, sample_id)
     oracle = row.get("oracle") if isinstance(row.get("oracle"), dict) else {}
@@ -115,23 +168,58 @@ def _normalize(
             validate_subgoal_abstraction(actions, plan)
         except ValueError as exc:
             raise TrainingConfigError(f"{sample_id}: {exc}") from exc
-    metadata_value = row.get("_meta", row.get("meta", row.get("metadata", {})))
-    if not isinstance(metadata_value, dict):
-        raise TrainingConfigError(f"{sample_id}: metadata must be an object")
-    metadata = dict(metadata_value)
-    is_verified = metadata.get("sim_verified") is True or metadata.get("verified") is True
-    if verified and not is_verified:
-        raise TrainingConfigError(f"{sample_id}: simulator verification is required")
-    if metadata.get("target_visible") is False:
-        raise TrainingConfigError(f"{sample_id}: target_visible must not be false")
+    _validate_simulator_metadata(sample_id, metadata, verified)
     return CotSample(
         sample_id,
         image,
-        instruction.strip(),
+        instruction,
         tuple(state),
         tuple(plan),
         tuple(actions),
         metadata,
+    )
+
+
+def _normalize_raw_simulator_sample(
+    row: dict[str, Any],
+    index: int,
+    source_dir: Path,
+    require_sim_verified: bool,
+    max_state_facts: int = 12,
+) -> CotSample:
+    """Adapt one generator output row without changing its primitive trajectory."""
+    sample_id, image, instruction, metadata = _identity_image_metadata(
+        row, index, source_dir
+    )
+    gold = row.get("gold")
+    if not isinstance(gold, dict):
+        raise TrainingConfigError(f"{sample_id}: gold must be an object")
+    actions_value = gold.get("plan_actions")
+    if (
+        not isinstance(actions_value, list)
+        or not actions_value
+        or any(not isinstance(action, str) or not action.strip() for action in actions_value)
+    ):
+        raise TrainingConfigError(
+            f"{sample_id}: gold.plan_actions must be a non-empty string list"
+        )
+    actions = list(actions_value)
+    try:
+        for action in actions:
+            parse_primitive_action(action)
+        state = extract_task_relevant_state(row, max_facts=max_state_facts)
+        plan = abstract_subgoals(actions)
+    except ValueError as exc:
+        raise TrainingConfigError(f"{sample_id}: {exc}") from exc
+    _validate_simulator_metadata(sample_id, metadata, require_sim_verified)
+    return CotSample(
+        sample_id=sample_id,
+        image_path=image,
+        instruction=instruction,
+        state=tuple(state),
+        plan=tuple(plan),
+        actions=tuple(actions),
+        metadata=metadata,
     )
 
 
@@ -218,6 +306,7 @@ def _swift_row(
 def prepare_cot_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool) -> dict[str, Any]:
     data = require_mapping(config.get("data"), "data")
     response_format, weights = _format_weights(config)
+    source_format = _source_format(data)
     source = resolve_path(base_dir, str(data.get("source_dataset", "")))
     if not source.is_file():
         raise FileNotFoundError(f"Source dataset does not exist: {source}")
@@ -226,16 +315,43 @@ def prepare_cot_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool)
     train_path, val_path, manifest_path = output / "train.jsonl", output / "val.jsonl", output / "manifest.json"
     if not overwrite and any(path.exists() for path in (train_path, val_path, manifest_path)):
         raise FileExistsError("Prepared files already exist (use --overwrite)")
-    samples = [
-        _normalize(
-            row,
-            index,
-            source.parent,
-            bool(data.get("require_sim_verified", True)),
-            response_format,
+    rows = _read_jsonl(source)
+    expected_source_samples = _expected_source_samples(data)
+    if expected_source_samples is not None and len(rows) != expected_source_samples:
+        raise TrainingConfigError(
+            "Source sample count mismatch: "
+            f"expected {expected_source_samples}, found {len(rows)} in {source}"
         )
-        for index, row in enumerate(_read_jsonl(source), start=1)
-    ]
+    require_sim_verified = bool(data.get("require_sim_verified", True))
+    if source_format == "raw_simulator":
+        max_state_facts_value = data.get("max_state_facts", 12)
+        if (
+            isinstance(max_state_facts_value, bool)
+            or not isinstance(max_state_facts_value, int)
+            or max_state_facts_value <= 0
+        ):
+            raise TrainingConfigError("data.max_state_facts must be a positive integer")
+        samples = [
+            _normalize_raw_simulator_sample(
+                row,
+                index,
+                source.parent,
+                require_sim_verified,
+                max_state_facts_value,
+            )
+            for index, row in enumerate(rows, start=1)
+        ]
+    else:
+        samples = [
+            _normalize(
+                row,
+                index,
+                source.parent,
+                require_sim_verified,
+                response_format,
+            )
+            for index, row in enumerate(rows, start=1)
+        ]
     if len({sample.sample_id for sample in samples}) != len(samples):
         raise TrainingConfigError("sample_id values must be unique")
     allowed = [str(value) for value in config.get("allowed_actions", [])]
@@ -262,7 +378,8 @@ def prepare_cot_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool)
     _write_jsonl(val_path, (_swift_row(samples[index], allowed, response_format, weights) for index in ordered_val))
     manifest = {
         "source_dataset": str(source),
-        "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+        "source_sha256": _source_sha256(source),
+        "source_format": source_format,
         "response_format": response_format,
         "section_loss_weights": weights,
         "seed": seed,
@@ -278,10 +395,41 @@ def prepare_cot_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool)
     return manifest
 
 
+def _validate_prepared_source(
+    data: dict[str, Any], base_dir: Path, output: Path
+) -> None:
+    source = resolve_path(base_dir, str(data.get("source_dataset", "")))
+    if not source.is_file():
+        raise FileNotFoundError(f"Source dataset does not exist: {source}")
+    manifest_path = output / "manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"Prepared manifest does not exist: {manifest_path}")
+    try:
+        with manifest_path.open("r", encoding="utf-8") as handle:
+            manifest = json.load(handle)
+    except json.JSONDecodeError as exc:
+        raise TrainingConfigError(f"Invalid prepared manifest: {manifest_path}: {exc}") from exc
+    if not isinstance(manifest, dict):
+        raise TrainingConfigError(f"Prepared manifest must be an object: {manifest_path}")
+    recorded_sha = manifest.get("source_sha256")
+    if not isinstance(recorded_sha, str) or not recorded_sha:
+        raise TrainingConfigError(
+            f"Prepared manifest has no source_sha256: {manifest_path}; run prepare --overwrite"
+        )
+    current_sha = _source_sha256(source)
+    if current_sha != recorded_sha:
+        raise TrainingConfigError(
+            "Prepared data is stale because the source dataset changed; "
+            "run prepare --overwrite before validate or train"
+        )
+
+
 def validate_cot_prepared_dataset(config: dict[str, Any], base_dir: Path) -> dict[str, int]:
     data = require_mapping(config.get("data"), "data")
+    _source_format(data)
     response_format, weights = _format_weights(config)
     output = resolve_path(base_dir, str(data.get("prepared_dir", "prepared")))
+    _validate_prepared_source(data, base_dir, output)
     required = {
         "action": ["action"],
         "plan_action": ["plan", "action"],

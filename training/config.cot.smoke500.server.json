@@ -1,0 +1,16 @@
+{
+  "extends": "config.cot.pilot5000.server.json",
+  "model": {
+    "output_dir": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-cot-smoke500"
+  },
+  "data": {
+    "source_dataset": "../exp0/new5000_shard_data/shard_0/samples.smoke500.jsonl",
+    "prepared_dir": "prepared/cot-smoke500",
+    "expected_source_samples": 500
+  },
+  "training": {
+    "max_steps": 3,
+    "logging_steps": 1,
+    "save_steps": 3
+  }
+}

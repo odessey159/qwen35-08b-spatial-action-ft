@@ -1,0 +1,13 @@
+{
+  "extends": "config.cot.server.json",
+  "model": {
+    "output_dir": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-cot-pilot5000"
+  },
+  "data": {
+    "source_dataset": "../exp0/new5000_data/samples.jsonl",
+    "source_format": "raw_simulator",
+    "prepared_dir": "prepared/cot-pilot5000",
+    "response_format": "cot",
+    "expected_source_samples": 5000
+  }
+}

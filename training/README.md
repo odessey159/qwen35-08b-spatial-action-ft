@@ -80,6 +80,47 @@ task-relevant state 和高层 subgoals，不调用 LLM：
 `generation_report.json`。验证会检查 image/instruction/state/plan/action 完整性、动作语法、
 plan-action 一致性、图像存在性、`sim_verified=true`，并报告三段平均 token 长度。
 
+## 直接读取 raw simulator 数据
+
+`training/cot_data.py` 现在支持两种显式输入路径：旧 CoT 数据继续使用默认的 `cot` 格式；
+generator 原始输出可在配置中设置：
+
+```json
+"source_format": "raw_simulator"
+```
+
+raw adapter 严格保留 `gold.plan_actions` 的 simulator-verified primitive action 顺序，使用
+`extract_task_relevant_state(raw_row)` 提取任务相关状态，并统一通过
+`abstract_subgoals(actions)` 生成高层 plan。raw row 自带的 `subgoals` 不作为训练 truth。
+adapter 只生成内部 `CotSample`，之后仍复用同一套 `_swift_row()` ms-swift serialization；
+内部 plan 不带编号，最终 rendered `<plan>` 才添加编号。
+
+当前开发与自动测试使用 repo 现有的小样本和 synthetic raw fixture 验证
+`raw simulator adapter → prepare → validate`，不依赖也不会创建未来的 5000 条数据。
+
+`expected_source_samples` 是可选的部署保护。配置后，`prepare` 会要求 source 中的非空 JSONL
+样本数完全一致。每次 `validate`（以及训练前的自动 validation）还会比较当前 source SHA-256
+与 prepared manifest；源文件变化后必须重新执行 `prepare --overwrite`。
+
+### 未来 5000 Pilot
+
+`config.cot.pilot5000.server.json` 只为未来数据部署预留。当前 repo 不包含
+`exp0/new5000_data/samples.jsonl`，因此现在不能用该配置成功执行 `prepare`。等外部生成任务完成，
+并将完整 5000 条数据和图像放到约定目录后，依次执行：
+
+```bash
+.venv-train/bin/python -m training.cli \
+  --config training/config.cot.pilot5000.server.json prepare --overwrite
+.venv-train/bin/python -m training.cli \
+  --config training/config.cot.pilot5000.server.json validate
+.venv-train/bin/python -m training.cli \
+  --config training/config.cot.pilot5000.server.json check-runtime
+.venv-train/bin/python -m training.cli \
+  --config training/config.cot.pilot5000.server.json show-command
+.venv-train/bin/python -m training.cli \
+  --config training/config.cot.pilot5000.server.json train
+```
+
 ## 服务器使用顺序
 
 先将本仓库同步到 `/root/qwen35-08b-spatial-action-ft`。安装脚本会复用服务器
