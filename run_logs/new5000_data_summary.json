@@ -1,0 +1,118 @@
+{
+  "checkpoint_complete": {
+    "shard_0": false,
+    "shard_1": false,
+    "shard_2": false,
+    "shard_3": false,
+    "shard_4": false,
+    "shard_5": true,
+    "shard_6": false,
+    "shard_7": false
+  },
+  "checkpoint_counts_match": true,
+  "collision_affected_pct": 0.64,
+  "collision_affected_rows": 32,
+  "collision_groups": 16,
+  "collision_groups_by_shard": {
+    "shard_0": 4,
+    "shard_1": 3,
+    "shard_2": 1,
+    "shard_3": 3,
+    "shard_4": 1,
+    "shard_6": 3,
+    "shard_7": 1
+  },
+  "dataset_bytes": 1754828814,
+  "dataset_gib": 1.634,
+  "group_counts": {
+    "clean": 741,
+    "counterfactual_put": 1852,
+    "open_close": 555,
+    "pickup": 741,
+    "slice": 555,
+    "toggle": 556
+  },
+  "image_file_count": 5000,
+  "json_parse_errors": 0,
+  "minimum_removal_pct": 0.32,
+  "minimum_rows_to_remove": 16,
+  "missing_primary_images": 0,
+  "missing_wrong_images": 0,
+  "per_shard": {
+    "shard_0": 628,
+    "shard_1": 628,
+    "shard_2": 628,
+    "shard_3": 626,
+    "shard_4": 625,
+    "shard_5": 623,
+    "shard_6": 621,
+    "shard_7": 621
+  },
+  "report_complete": {
+    "shard_0": false,
+    "shard_1": false,
+    "shard_2": false,
+    "shard_3": false,
+    "shard_4": false,
+    "shard_5": true,
+    "shard_6": false,
+    "shard_7": false
+  },
+  "sample_collision_examples": [
+    {
+      "affected_rows": 2,
+      "distinct_plans": 2,
+      "image_sha256": "ff6f62757b8c12ca2e848e204e70dbd31d6c344db5282e9a600df068961d24a6",
+      "instruction": "确保 Drawer 是打开的。",
+      "min_removals": 1,
+      "shards": [
+        "shard_0"
+      ]
+    },
+    {
+      "affected_rows": 2,
+      "distinct_plans": 2,
+      "image_sha256": "c9f86093154235cbc8a04f279e2a6ca16c1c36e68c522cda92f5a870112fbe5f",
+      "instruction": "把 Pencil 放进 Drawer。",
+      "min_removals": 1,
+      "shards": [
+        "shard_0"
+      ]
+    },
+    {
+      "affected_rows": 2,
+      "distinct_plans": 2,
+      "image_sha256": "504517bca03a9056aad05acf874b6eddf67a241b7bdd896b6fc09ea75d6e2a1c",
+      "instruction": "确保 Drawer 是打开的。",
+      "min_removals": 1,
+      "shards": [
+        "shard_0"
+      ]
+    },
+    {
+      "affected_rows": 2,
+      "distinct_plans": 2,
+      "image_sha256": "d027e34c063a56156d51872559d38ee435002b45d8ed05d444f62212c6dc2830",
+      "instruction": "确保 Fridge 是打开的。",
+      "min_removals": 1,
+      "shards": [
+        "shard_0"
+      ]
+    },
+    {
+      "affected_rows": 2,
+      "distinct_plans": 2,
+      "image_sha256": "b80cdeb8cdd605a7ad72a411960d7027321d09ff662367dffaa61187f3edd63b",
+      "instruction": "确保 Drawer 是打开的。",
+      "min_removals": 1,
+      "shards": [
+        "shard_1"
+      ]
+    }
+  ],
+  "sim_verified_false": 0,
+  "total_rows": 5000,
+  "unique_scenes": 522,
+  "wrong_image_missing_or_empty": 4377,
+  "wrong_image_present": 623
+}

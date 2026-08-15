@@ -6,6 +6,7 @@ exp0/_ssh_askpass.cmd
 __pycache__/
 *.py[cod]
 .venv/
+.venv-train/
 venv/
 
 # Local runtime artifacts
