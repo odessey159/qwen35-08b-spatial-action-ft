@@ -5,11 +5,14 @@ import json
 import math
 import os
 import random
+import re
 import shutil
+import subprocess
+import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 
 # Restricted to ALFRED-compatible classes used by the project. Objects that are
@@ -124,6 +127,16 @@ class TaskCandidate:
     verify: Callable[[], bool]
     state_label: str | None = None
     counterfactual_group: str | None = None
+    setup: Callable[[], bool] | None = None
+
+
+@dataclass(frozen=True)
+class ViewOption:
+    group: str
+    kind: str
+    candidate: TaskCandidate | None = None
+    put_ids: tuple[str, str, str | None] | None = None
+    open_target_id: str | None = None
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -141,11 +154,74 @@ def write_json(path: Path, value: Any) -> None:
         handle.write("\n")
 
 
-def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+def write_json_atomic(path: Path, value: Any) -> None:
+    temporary_path = path.with_suffix(path.suffix + ".tmp")
+    write_json(temporary_path, value)
+    os.replace(temporary_path, path)
+
+
+def append_jsonl_rows(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="\n") as handle:
-        for row in rows:
-            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+    payload = "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows)
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(payload)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def iter_jsonl(path: Path) -> Iterator[dict[str, Any]]:
+    with path.open("r", encoding="utf-8") as handle:
+        for line_number, raw_line in enumerate(handle, start=1):
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSONL at {path}:{line_number}: {exc}") from exc
+            if not isinstance(row, dict):
+                raise ValueError(f"Expected object at {path}:{line_number}")
+            yield row
+
+
+def parse_sample_index(sample_id: str) -> int:
+    match = re.search(r"(\d+)$", sample_id)
+    if not match:
+        raise ValueError(f"Unparseable sample_id: {sample_id}")
+    return int(match.group(1))
+
+
+def signature_from_row(row: dict[str, Any]) -> tuple[Any, ...]:
+    meta = row["meta"]
+    pose = meta["camera_pose"]
+    target_id = meta.get("target_id")
+    if not target_id:
+        object_ids = meta.get("required_object_ids") or []
+        target_id = object_ids[0] if object_ids else None
+    return (
+        meta["scene_id"],
+        round(float(pose["position"]["x"]), 2),
+        round(float(pose["position"]["z"]), 2),
+        int(pose["rotation"]["y"]),
+        int(pose["horizon"]),
+        meta["task_group"],
+        target_id,
+        meta.get("receptacle_state"),
+    )
+
+
+def split_count(total: int, shard_index: int, shard_count: int) -> int:
+    base, remainder = divmod(int(total), shard_count)
+    return base + (1 if shard_index < remainder else 0)
+
+
+def rng_state_to_json(state: tuple[Any, ...]) -> dict[str, Any]:
+    version, mt_values, gauss = state
+    return {"version": version, "mt": list(mt_values), "gauss": gauss}
+
+
+def rng_state_from_json(payload: dict[str, Any]) -> tuple[Any, ...]:
+    return (payload["version"], tuple(payload["mt"]), payload["gauss"])
 
 
 def object_map(event: Any) -> dict[str, dict[str, Any]]:
@@ -251,25 +327,26 @@ class ThorDataGenerator:
         self.images_dir = self.output_dir / "images"
         self.samples_path = self.output_dir / "samples.jsonl"
         self.report_path = self.output_dir / "generation_report.json"
+        self.checkpoint_path = self.output_dir / "generation_checkpoint.json"
         self.controller: Any = None
-        self.rows: list[dict[str, Any]] = []
         self.rejections: Counter[str] = Counter()
         self.group_counts: Counter[str] = Counter()
         self.scene_counts: Counter[str] = Counter()
         self.used_signatures: set[tuple[Any, ...]] = set()
         self.next_sample_index = 1
+        self.scene_index = 0
+        self.resume_scene_index = 0
+        self.scenes_exhausted = False
+        self.resumed = False
 
         if overwrite:
-            if self.images_dir.exists():
-                shutil.rmtree(self.images_dir)
-            for path in (self.samples_path, self.report_path):
-                if path.exists():
-                    path.unlink()
-        elif self.samples_path.exists() or self.images_dir.exists():
-            raise FileExistsError(
-                f"Generated data already exists under {self.output_dir}; use --overwrite explicitly"
-            )
+            self._reset_output()
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         self.images_dir.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def committed_count(self) -> int:
+        return int(sum(self.group_counts.values()))
 
     @property
     def render_config(self) -> dict[str, Any]:
@@ -443,6 +520,179 @@ class ThorDataGenerator:
         )
         return bool(event.metadata.get("lastActionSuccess"))
 
+    def _reset_output(self) -> None:
+        if self.images_dir.exists():
+            shutil.rmtree(self.images_dir)
+        for path in (
+            self.samples_path,
+            self.report_path,
+            self.checkpoint_path,
+            self.samples_path.with_suffix(".jsonl.tmp"),
+            self.report_path.with_suffix(self.report_path.suffix + ".tmp"),
+            self.checkpoint_path.with_suffix(self.checkpoint_path.suffix + ".tmp"),
+        ):
+            if path.exists():
+                path.unlink()
+
+    def _restore_row_state(self, row: dict[str, Any]) -> None:
+        meta = row["meta"]
+        self.used_signatures.add(signature_from_row(row))
+        self.group_counts[str(meta["task_group"])] += 1
+        self.scene_counts[str(meta["scene_id"])] += 1
+        self.next_sample_index = max(
+            self.next_sample_index, parse_sample_index(str(row["sample_id"])) + 1
+        )
+
+    def _rewrite_jsonl_prefix(self, valid_count: int) -> None:
+        temporary_path = self.samples_path.with_suffix(".jsonl.tmp")
+        written = 0
+        with self.samples_path.open("r", encoding="utf-8") as source:
+            with temporary_path.open("w", encoding="utf-8", newline="\n") as destination:
+                for raw_line in source:
+                    if not raw_line.strip():
+                        continue
+                    try:
+                        json.loads(raw_line)
+                    except json.JSONDecodeError:
+                        break
+                    if written >= valid_count:
+                        break
+                    destination.write(raw_line if raw_line.endswith("\n") else raw_line + "\n")
+                    written += 1
+        os.replace(temporary_path, self.samples_path)
+
+    def _reset_sample_state(self) -> None:
+        self.group_counts = Counter()
+        self.scene_counts = Counter()
+        self.used_signatures = set()
+        self.next_sample_index = 1
+
+    def _ingest_jsonl(self) -> tuple[int, bool, set[str]]:
+        self._reset_sample_state()
+        referenced_names: set[str] = set()
+        valid_count = 0
+        truncated = False
+        with self.samples_path.open("r", encoding="utf-8") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    truncated = True
+                    break
+                if not isinstance(row, dict):
+                    truncated = True
+                    break
+                self._restore_row_state(row)
+                referenced_names.add(Path(str(row["image"])).name)
+                valid_count += 1
+        return valid_count, truncated, referenced_names
+
+    def _cleanup_orphan_images(self, referenced_names: set[str]) -> None:
+        if not self.images_dir.exists():
+            return
+        for path in self.images_dir.glob("*.png"):
+            if path.name not in referenced_names:
+                path.unlink()
+
+    def load_existing(self) -> None:
+        leftover_tmp = self.samples_path.with_suffix(".jsonl.tmp")
+        if leftover_tmp.exists():
+            leftover_tmp.unlink()
+        if not self.samples_path.exists():
+            self._cleanup_orphan_images(set())
+            self._load_checkpoint()
+            return
+
+        valid_count, truncated, referenced_names = self._ingest_jsonl()
+        if truncated:
+            self._rewrite_jsonl_prefix(valid_count)
+            valid_count, _, referenced_names = self._ingest_jsonl()
+        if self.group_counts["counterfactual_put"] % 2 == 1 and valid_count:
+            self._rewrite_jsonl_prefix(valid_count - 1)
+            valid_count, _, referenced_names = self._ingest_jsonl()
+        self._cleanup_orphan_images(referenced_names)
+        self.resumed = valid_count > 0 or self.checkpoint_path.exists()
+        self._load_checkpoint()
+        if self.resumed:
+            print(
+                f"Resuming {valid_count} existing samples under {self.output_dir}",
+                flush=True,
+            )
+
+    def _load_checkpoint(self) -> None:
+        if not self.checkpoint_path.exists():
+            return
+        try:
+            payload = load_json(self.checkpoint_path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            print(
+                f"Ignoring unreadable checkpoint {self.checkpoint_path}",
+                flush=True,
+            )
+            return
+        self.resume_scene_index = int(payload.get("scene_index", 0))
+        self.scenes_exhausted = bool(payload.get("scenes_exhausted", False))
+        if int(payload.get("committed_count", -1)) != self.committed_count:
+            return
+        rng_state = payload.get("rng_state")
+        if isinstance(rng_state, dict):
+            self.rng.setstate(rng_state_from_json(rng_state))
+        rejections = payload.get("rejections")
+        if isinstance(rejections, dict):
+            self.rejections = Counter(rejections)
+
+    def write_checkpoint(self, *, complete: bool) -> None:
+        payload = {
+            "seed": self.config["seed"],
+            "source": self.config["source"],
+            "committed_count": self.committed_count,
+            "next_sample_index": self.next_sample_index,
+            "scene_index": self.scene_index,
+            "scenes_exhausted": self.scenes_exhausted,
+            "complete": complete,
+            "group_counts": dict(self.group_counts),
+            "scene_counts": dict(self.scene_counts),
+            "rejections": dict(self.rejections),
+            "rng_state": rng_state_to_json(self.rng.getstate()),
+        }
+        write_json_atomic(self.checkpoint_path, payload)
+
+    def write_report(self, *, complete: bool) -> None:
+        sample_count = self.committed_count
+        write_json_atomic(
+            self.report_path,
+            {
+                "seed": self.config["seed"],
+                "source": self.config["source"],
+                "sample_count": sample_count,
+                "scene_count": len(self.scene_counts),
+                "group_counts": dict(self.group_counts),
+                "scene_counts": dict(self.scene_counts),
+                "counterfactual_ratio": (
+                    self.group_counts["counterfactual_put"] / sample_count if sample_count else 0.0
+                ),
+                "rejections": dict(self.rejections),
+                "complete": complete,
+                "resumed": self.resumed,
+                "expected_sample_count": self.target_sample_count(),
+            },
+        )
+
+    def commit_rows(self, rows: list[dict[str, Any]]) -> None:
+        if not rows:
+            return
+        append_jsonl_rows(self.samples_path, rows)
+        print(
+            f"scene={rows[-1]['meta']['scene_id']} samples={self.committed_count}/{self.target_sample_count()} "
+            f"groups={dict(self.group_counts)}",
+            flush=True,
+        )
+        self.write_checkpoint(complete=False)
+        self.write_report(complete=False)
+
     def rollback_saved_rows(
         self,
         rows: list[dict[str, Any]],
@@ -602,15 +852,8 @@ class ThorDataGenerator:
             self.rejections["required_object_not_visible"] += 1
             return None
 
-        signature = (
-            context.scene_id,
-            round(float(context.camera_pose["position"]["x"]), 2),
-            round(float(context.camera_pose["position"]["z"]), 2),
-            int(context.camera_pose["rotation"]["y"]),
-            int(context.camera_pose["horizon"]),
-            candidate.group,
-            candidate.target_id,
-            candidate.state_label,
+        signature = self.sample_signature(
+            context, candidate.group, candidate.target_id, candidate.state_label
         )
         if signature in self.used_signatures:
             self.rejections["duplicate_signature"] += 1
@@ -644,6 +887,7 @@ class ThorDataGenerator:
             "subgoals": list(candidate.subgoals),
             "meta": {
                 "scene_id": context.scene_id,
+                "target_id": candidate.target_id,
                 "counterfactual_group": candidate.counterfactual_group,
                 "task_group": candidate.group,
                 "target_visible": bool(target_obj.get("visible")),
@@ -660,6 +904,32 @@ class ThorDataGenerator:
         self.scene_counts[context.scene_id] += 1
         return row
 
+    def sample_signature(
+        self,
+        context: SceneContext,
+        group: str,
+        target_id: str,
+        state_label: str | None = None,
+    ) -> tuple[Any, ...]:
+        pose = context.camera_pose
+        return (
+            context.scene_id,
+            round(float(pose["position"]["x"]), 2),
+            round(float(pose["position"]["z"]), 2),
+            int(pose["rotation"]["y"]),
+            int(pose["horizon"]),
+            group,
+            target_id,
+            state_label,
+        )
+
+    def group_deficit(self, group: str) -> int:
+        if group == "counterfactual_put":
+            needed = 2 * int(self.generation_config["counterfactual_pairs"])
+            return max(0, needed - int(self.group_counts[group]))
+        quota = int(self.generation_config["group_quotas"].get(group, 0))
+        return max(0, quota - int(self.group_counts[group]))
+
     def _atomic_candidate(
         self,
         group: str,
@@ -667,131 +937,146 @@ class ThorDataGenerator:
         simulator_action: str,
         instruction: str,
         high_level_action: str,
+        setup: Callable[[], bool] | None = None,
     ) -> TaskCandidate:
         target_type = object_type(target)
+        object_id = str(target["objectId"])
         actions = (
             canonical_action("GotoLocation", target_type),
             canonical_action(high_level_action, target_type),
         )
 
-        def verify() -> bool:
-            return self.execute_object_action(simulator_action, target["objectId"])
+        def verify(bound_id: str = object_id, bound_action: str = simulator_action) -> bool:
+            return self.execute_object_action(bound_action, bound_id)
 
         return TaskCandidate(
             group=group,
-            target_id=target["objectId"],
-            relevant_ids=(target["objectId"],),
+            target_id=object_id,
+            relevant_ids=(object_id,),
             plan_actions=actions,
             instruction=instruction,
             subgoals=tuple(action_to_nl(action) + "。" for action in actions),
             verify=verify,
+            setup=setup,
         )
 
-    def make_pickup_candidate(self, event: Any) -> TaskCandidate | None:
+    def list_pickup_candidates(self, event: Any) -> list[TaskCandidate]:
         visible = visible_objects(event)
         by_id = {obj["objectId"]: obj for obj in visible}
-        targets = [obj for obj in visible if obj.get("pickupable") and not obj.get("isPickedUp")]
-        self.rng.shuffle(targets)
-        if not targets:
-            return None
-        target = targets[0]
-        parent = self.visible_parent(target, by_id)
-        location = object_type(parent) if parent else object_type(target)
-        target_type = object_type(target)
-        actions = (
-            canonical_action("GotoLocation", location),
-            canonical_action("PickupObject", target_type),
-        )
+        candidates: list[TaskCandidate] = []
+        for target in visible:
+            if not target.get("pickupable") or target.get("isPickedUp"):
+                continue
+            object_id = str(target["objectId"])
+            parent = self.visible_parent(target, by_id)
+            location = object_type(parent) if parent else object_type(target)
+            target_type = object_type(target)
+            actions = (
+                canonical_action("GotoLocation", location),
+                canonical_action("PickupObject", target_type),
+            )
+            parent_id = str(parent["objectId"]) if parent else None
+            relevant = (object_id,) + ((parent_id,) if parent_id else ())
+            location_text = f"{location} 上或里面的 " if parent else ""
 
-        def verify() -> bool:
-            return self.execute_object_action("PickupObject", target["objectId"])
+            def verify(bound_id: str = object_id) -> bool:
+                return self.execute_object_action("PickupObject", bound_id)
 
-        relevant = (target["objectId"],) + ((parent["objectId"],) if parent else ())
-        location_text = f"{location} 上或里面的 " if parent else ""
-        return TaskCandidate(
-            group="pickup",
-            target_id=target["objectId"],
-            relevant_ids=relevant,
-            plan_actions=actions,
-            instruction=f"拿起{location_text}{target_type}。",
-            subgoals=tuple(action_to_nl(action) + "。" for action in actions),
-            verify=verify,
-        )
+            candidates.append(
+                TaskCandidate(
+                    group="pickup",
+                    target_id=object_id,
+                    relevant_ids=relevant,
+                    plan_actions=actions,
+                    instruction=f"拿起{location_text}{target_type}。",
+                    subgoals=tuple(action_to_nl(action) + "。" for action in actions),
+                    verify=verify,
+                )
+            )
+        return candidates
 
-    def make_atomic_candidate(self, event: Any, group: str) -> TaskCandidate | None:
+    def list_atomic_candidates(self, event: Any, group: str) -> list[TaskCandidate]:
         visible = visible_objects(event)
+        candidates: list[TaskCandidate] = []
         if group == "clean":
-            targets = [obj for obj in visible if obj.get("dirtyable")]
-            self.rng.shuffle(targets)
-            for target in targets:
-                if not self.set_object_state("DirtyObject", target["objectId"]):
+            for target in visible:
+                if not target.get("dirtyable"):
                     continue
-                return self._atomic_candidate(
-                    group,
-                    target,
-                    "CleanObject",
-                    f"清洁 {object_type(target)}。",
-                    "CleanObject",
+                object_id = str(target["objectId"])
+
+                def setup(bound_id: str = object_id) -> bool:
+                    return self.set_object_state("DirtyObject", bound_id)
+
+                candidates.append(
+                    self._atomic_candidate(
+                        group,
+                        target,
+                        "CleanObject",
+                        f"清洁 {object_type(target)}。",
+                        "CleanObject",
+                        setup=setup,
+                    )
                 )
         elif group == "heat":
-            targets = [obj for obj in visible if obj.get("cookable") and not obj.get("isCooked")]
-            self.rng.shuffle(targets)
-            if targets:
-                target = targets[0]
-                return self._atomic_candidate(
-                    group,
-                    target,
-                    "CookObject",
-                    f"加热 {object_type(target)}。",
-                    "HeatObject",
-                )
+            for target in visible:
+                if target.get("cookable") and not target.get("isCooked"):
+                    candidates.append(
+                        self._atomic_candidate(
+                            group,
+                            target,
+                            "CookObject",
+                            f"加热 {object_type(target)}。",
+                            "HeatObject",
+                        )
+                    )
         elif group == "slice":
-            targets = [obj for obj in visible if obj.get("sliceable") and not obj.get("isSliced")]
-            self.rng.shuffle(targets)
-            if targets:
-                target = targets[0]
-                return self._atomic_candidate(
-                    group,
-                    target,
-                    "SliceObject",
-                    f"切开 {object_type(target)}。",
-                    "SliceObject",
-                )
+            for target in visible:
+                if target.get("sliceable") and not target.get("isSliced"):
+                    candidates.append(
+                        self._atomic_candidate(
+                            group,
+                            target,
+                            "SliceObject",
+                            f"切开 {object_type(target)}。",
+                            "SliceObject",
+                        )
+                    )
         elif group == "toggle":
-            targets = [obj for obj in visible if obj.get("toggleable")]
-            self.rng.shuffle(targets)
-            if targets:
-                target = targets[0]
+            for target in visible:
+                if not target.get("toggleable"):
+                    continue
                 simulator_action = "ToggleObjectOff" if target.get("isToggled") else "ToggleObjectOn"
                 desired = "关闭" if target.get("isToggled") else "打开"
-                return self._atomic_candidate(
-                    group,
-                    target,
-                    simulator_action,
-                    f"{desired} {object_type(target)}。",
-                    "ToggleObject",
+                candidates.append(
+                    self._atomic_candidate(
+                        group,
+                        target,
+                        simulator_action,
+                        f"{desired} {object_type(target)}。",
+                        "ToggleObject",
+                    )
                 )
         elif group == "open_close":
-            targets = [obj for obj in visible if obj.get("openable")]
-            self.rng.shuffle(targets)
-            if targets:
-                target = targets[0]
+            for target in visible:
+                if not target.get("openable"):
+                    continue
                 desired_open = not bool(target.get("isOpen"))
                 simulator_action = "OpenObject" if desired_open else "CloseObject"
-                high_level = simulator_action
                 desired = "打开" if desired_open else "关闭"
-                return self._atomic_candidate(
-                    group,
-                    target,
-                    simulator_action,
-                    f"{desired} {object_type(target)}。",
-                    high_level,
+                candidates.append(
+                    self._atomic_candidate(
+                        group,
+                        target,
+                        simulator_action,
+                        f"{desired} {object_type(target)}。",
+                        simulator_action,
+                    )
                 )
-        return None
+        return candidates
 
-    def choose_put_pair(
+    def list_put_pairs(
         self, event: Any
-    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None] | None:
+    ) -> list[tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]]:
         visible = visible_objects(event)
         by_id = {obj["objectId"]: obj for obj in visible}
         targets = [obj for obj in visible if obj.get("pickupable") and not obj.get("isPickedUp")]
@@ -807,8 +1092,14 @@ class ThorDataGenerator:
             for destination in destinations:
                 if destination["objectId"] not in parents and destination["objectId"] != target["objectId"]:
                     candidates.append((target, destination, source))
-        self.rng.shuffle(candidates)
-        return candidates[0] if candidates else None
+        return candidates
+
+    def list_open_state_targets(self, event: Any) -> list[dict[str, Any]]:
+        return [
+            obj
+            for obj in visible_objects(event)
+            if obj.get("openable") and not obj.get("pickupable")
+        ]
 
     def configure_put_variant(
         self,
@@ -816,8 +1107,10 @@ class ThorDataGenerator:
         target_id: str,
         destination_id: str,
         should_be_open: bool,
+        *,
+        reset_house: bool = True,
     ) -> Any | None:
-        if not self.reset_scene(context.house):
+        if reset_house and not self.reset_scene(context.house):
             return None
         state_action = "OpenObject" if should_be_open else "CloseObject"
         if not self.set_object_state(state_action, destination_id):
@@ -910,8 +1203,10 @@ class ThorDataGenerator:
         context: SceneContext,
         target_id: str,
         should_be_open: bool,
+        *,
+        reset_house: bool = True,
     ) -> Any | None:
-        if not self.reset_scene(context.house):
+        if reset_house and not self.reset_scene(context.house):
             return None
         state_action = "OpenObject" if should_be_open else "CloseObject"
         if not self.set_object_state(state_action, target_id):
@@ -960,17 +1255,13 @@ class ThorDataGenerator:
         )
 
     def try_open_state_pair(
-        self, context: SceneContext, initial_event: Any
+        self,
+        context: SceneContext,
+        initial_event: Any,
+        target: dict[str, Any],
+        *,
+        reset_first: bool = False,
     ) -> list[dict[str, Any]] | None:
-        targets = [
-            obj
-            for obj in visible_objects(initial_event)
-            if obj.get("openable") and not obj.get("pickupable")
-        ]
-        self.rng.shuffle(targets)
-        if not targets:
-            return None
-        target = targets[0]
         group_id = f"cf_{1 + self.group_counts['counterfactual_put'] // 2:04d}"
         pair_rows: list[dict[str, Any]] = []
         transaction = (
@@ -979,9 +1270,12 @@ class ThorDataGenerator:
             self.scene_counts.copy(),
             set(self.used_signatures),
         )
-        for should_be_open in (True, False):
+        for index, should_be_open in enumerate((True, False)):
             event = self.configure_open_state_variant(
-                context, target["objectId"], should_be_open
+                context,
+                target["objectId"],
+                should_be_open,
+                reset_house=reset_first or index > 0,
             )
             if event is None:
                 self.rollback_saved_rows(pair_rows, *transaction)
@@ -1006,11 +1300,13 @@ class ThorDataGenerator:
         return pair_rows
 
     def try_counterfactual_pair(
-        self, context: SceneContext, initial_event: Any
+        self,
+        context: SceneContext,
+        initial_event: Any,
+        selected: tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None],
+        *,
+        reset_first: bool = False,
     ) -> list[dict[str, Any]] | None:
-        selected = self.choose_put_pair(initial_event)
-        if selected is None:
-            return None
         target, destination, source = selected
         group_id = f"cf_{1 + self.group_counts['counterfactual_put'] // 2:04d}"
         pair_rows: list[dict[str, Any]] = []
@@ -1020,12 +1316,13 @@ class ThorDataGenerator:
             self.scene_counts.copy(),
             set(self.used_signatures),
         )
-        for should_be_open in (True, False):
+        for index, should_be_open in enumerate((True, False)):
             event = self.configure_put_variant(
                 context,
                 target["objectId"],
                 destination["objectId"],
                 should_be_open,
+                reset_house=reset_first or index > 0,
             )
             if event is None:
                 self.rollback_saved_rows(pair_rows, *transaction)
@@ -1060,41 +1357,282 @@ class ThorDataGenerator:
 
     def remaining_groups(self) -> list[str]:
         quotas = self.generation_config["group_quotas"]
-        groups = [
+        return [
             group for group, quota in quotas.items() if self.group_counts[group] < int(quota)
         ]
-        self.rng.shuffle(groups)
-        return groups
 
     def non_pair_complete(self) -> bool:
         return not self.remaining_groups()
+
+    def _pair_signature_used(self, context: SceneContext, target_id: str) -> bool:
+        return any(
+            self.sample_signature(context, "counterfactual_put", target_id, state)
+            in self.used_signatures
+            for state in ("open", "closed")
+        )
+
+    def enumerate_view_options(
+        self,
+        context: SceneContext,
+        event: Any,
+        *,
+        allow_pairs: bool,
+    ) -> list[ViewOption]:
+        options: list[ViewOption] = []
+        if allow_pairs and self.group_deficit("counterfactual_put") >= 2:
+            for target, destination, source in self.list_put_pairs(event):
+                if self._pair_signature_used(context, str(target["objectId"])):
+                    continue
+                source_id = str(source["objectId"]) if source is not None else None
+                options.append(
+                    ViewOption(
+                        group="counterfactual_put",
+                        kind="put_pair",
+                        put_ids=(str(target["objectId"]), str(destination["objectId"]), source_id),
+                    )
+                )
+            for target in self.list_open_state_targets(event):
+                if self._pair_signature_used(context, str(target["objectId"])):
+                    continue
+                options.append(
+                    ViewOption(
+                        group="counterfactual_put",
+                        kind="open_pair",
+                        open_target_id=str(target["objectId"]),
+                    )
+                )
+        for group in self.generation_config["group_quotas"]:
+            if self.group_deficit(str(group)) <= 0:
+                continue
+            candidates = (
+                self.list_pickup_candidates(event)
+                if group == "pickup"
+                else self.list_atomic_candidates(event, str(group))
+            )
+            for candidate in candidates:
+                signature = self.sample_signature(
+                    context, candidate.group, candidate.target_id, candidate.state_label
+                )
+                if signature in self.used_signatures:
+                    continue
+                options.append(
+                    ViewOption(group=str(group), kind="atomic", candidate=candidate)
+                )
+        return options
+
+    def pick_view_option(self, options: list[ViewOption]) -> ViewOption | None:
+        by_group: dict[str, list[ViewOption]] = defaultdict(list)
+        for option in options:
+            if self.group_deficit(option.group) <= 0:
+                continue
+            by_group[option.group].append(option)
+        groups = [group for group, items in by_group.items() if items]
+        if not groups:
+            return None
+        weights = [self.group_deficit(group) for group in groups]
+        chosen_group = self.rng.choices(groups, weights=weights, k=1)[0]
+        return self.rng.choice(by_group[chosen_group])
+
+    def _resolve_put_ids(
+        self, event: Any, put_ids: tuple[str, str, str | None]
+    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None] | None:
+        by_id = object_map(event)
+        target = by_id.get(put_ids[0])
+        destination = by_id.get(put_ids[1])
+        source = by_id.get(put_ids[2]) if put_ids[2] else None
+        if target is None or destination is None:
+            return None
+        return target, destination, source
+
+    def _execute_atomic_option(
+        self,
+        context: SceneContext,
+        event: Any,
+        candidate: TaskCandidate,
+    ) -> list[dict[str, Any]] | None:
+        capture_event = event
+        if candidate.setup is not None:
+            if not candidate.setup():
+                self.rejections[f"setup_failed:{candidate.group}"] += 1
+                return None
+            capture_event = self.teleport_camera(context.camera_pose)
+            if capture_event is None:
+                return None
+        row = self.save_sample(context, capture_event, candidate)
+        if row is None:
+            return None
+        return [row]
+
+    def execute_view_option(
+        self,
+        context: SceneContext,
+        event: Any,
+        option: ViewOption,
+    ) -> list[dict[str, Any]] | None:
+        if option.kind == "atomic":
+            if option.candidate is None:
+                return None
+            return self._execute_atomic_option(context, event, option.candidate)
+        if option.kind == "put_pair":
+            if option.put_ids is None:
+                return None
+            selected = self._resolve_put_ids(event, option.put_ids)
+            if selected is None:
+                return None
+            return self.try_counterfactual_pair(
+                context, event, selected, reset_first=False
+            )
+        if option.kind == "open_pair":
+            if option.open_target_id is None:
+                return None
+            target = object_map(event).get(option.open_target_id)
+            if target is None:
+                return None
+            return self.try_open_state_pair(context, event, target, reset_first=False)
+        return None
 
     def pair_complete(self) -> bool:
         required_rows = 2 * int(self.generation_config["counterfactual_pairs"])
         return self.group_counts["counterfactual_put"] >= required_rows
 
+    def quotas_met(self) -> bool:
+        if not self.pair_complete():
+            return False
+        quotas = self.generation_config["group_quotas"]
+        return all(self.group_counts[group] >= int(quota) for group, quota in quotas.items())
+
     def target_sample_count(self) -> int:
         non_pair = sum(int(value) for value in self.generation_config["group_quotas"].values())
         return non_pair + 2 * int(self.generation_config["counterfactual_pairs"])
 
+    def _wrong_images_complete(self) -> bool:
+        if not self.samples_path.exists():
+            return False
+        found = False
+        for row in iter_jsonl(self.samples_path):
+            found = True
+            if not row.get("wrong_image"):
+                return False
+        return found
+
     def assign_wrong_images(self) -> None:
-        by_scene: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        for row in self.rows:
-            by_scene[row["meta"]["scene_id"]].append(row)
+        if self.committed_count == 0 or not self.samples_path.exists():
+            return
+        if self._wrong_images_complete():
+            return
+        by_scene: dict[str, list[str]] = defaultdict(list)
+        for row in iter_jsonl(self.samples_path):
+            by_scene[str(row["meta"]["scene_id"])].append(str(row["image"]))
         scene_ids = sorted(by_scene)
         if len(scene_ids) < 2:
             raise RuntimeError("A′ requires generated samples from at least two distinct scenes")
-        for row in self.rows:
-            own_scene = row["meta"]["scene_id"]
-            other_scenes = [scene_id for scene_id in scene_ids if scene_id != own_scene]
-            wrong_scene = self.rng.choice(other_scenes)
-            wrong_row = self.rng.choice(by_scene[wrong_scene])
-            row["wrong_image"] = wrong_row["image"]
+        temporary_path = self.samples_path.with_suffix(".jsonl.tmp")
+        with self.samples_path.open("r", encoding="utf-8") as source:
+            with temporary_path.open("w", encoding="utf-8", newline="\n") as destination:
+                for raw_line in source:
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+                    row = json.loads(line)
+                    own_scene = str(row["meta"]["scene_id"])
+                    other_scenes = [scene_id for scene_id in scene_ids if scene_id != own_scene]
+                    wrong_scene = self.rng.choice(other_scenes)
+                    row["wrong_image"] = self.rng.choice(by_scene[wrong_scene])
+                    destination.write(json.dumps(row, ensure_ascii=False) + "\n")
+                destination.flush()
+                os.fsync(destination.fileno())
+        os.replace(temporary_path, self.samples_path)
+
+    def finalize(self, *, complete: bool) -> None:
+        if complete:
+            self.assign_wrong_images()
+        self.scenes_exhausted = self.scenes_exhausted or not complete
+        self.write_report(complete=complete)
+        self.write_checkpoint(complete=complete)
+        if complete:
+            return
+        expected = self.target_sample_count()
+        raise RuntimeError(
+            f"Generation incomplete: expected {expected}, produced {self.committed_count}. "
+            f"Counts={dict(self.group_counts)}, rejections={dict(self.rejections)}. "
+            "Partial samples were saved; rerun without --overwrite to resume."
+        )
+
+    def generate_from_scenes(self, scenes: list[tuple[dict[str, Any] | str, str]]) -> None:
+        generation = self.generation_config
+        start_index = self.resume_scene_index
+        reached_end = True
+        for scene_index, (house, scene_id) in enumerate(scenes):
+            if scene_index < start_index:
+                continue
+            if self.quotas_met():
+                reached_end = False
+                break
+            self.scene_index = scene_index
+            self.scenes_exhausted = False
+            self.write_checkpoint(complete=False)
+            print(f"Loading scene={scene_id}", flush=True)
+            if not self.reset_scene(house):
+                continue
+            reachable = self.get_reachable_positions()
+            if not reachable:
+                self.rejections["no_reachable_positions"] += 1
+                continue
+
+            view_attempts = int(generation["max_views_per_scene"])
+            max_samples = int(generation["max_samples_per_scene"])
+            house_dirty = False
+            for _ in range(view_attempts):
+                if self.quotas_met():
+                    break
+                if self.scene_counts[scene_id] >= max_samples:
+                    break
+                if house_dirty:
+                    if not self.reset_scene(house):
+                        break
+                    house_dirty = False
+                pose = {
+                    "position": self.rng.choice(reachable),
+                    "rotation": {
+                        "x": 0.0,
+                        "y": float(self.rng.choice(generation["camera_rotations"])),
+                        "z": 0.0,
+                    },
+                    "horizon": float(self.rng.choice(generation["camera_horizons"])),
+                }
+                event = self.teleport_camera(pose)
+                if event is None or len(visible_objects(event)) < 2:
+                    self.rejections["insufficient_visible_objects"] += 1
+                    continue
+                context = SceneContext(house=house, scene_id=scene_id, camera_pose=pose)
+                remaining_slots = max_samples - int(self.scene_counts[scene_id])
+                options = self.enumerate_view_options(
+                    context, event, allow_pairs=remaining_slots >= 2
+                )
+                if not options:
+                    self.rejections["no_feasible_candidate"] += 1
+                    continue
+                option = self.pick_view_option(options)
+                if option is None:
+                    self.rejections["no_feasible_candidate"] += 1
+                    continue
+                rows = self.execute_view_option(context, event, option)
+                house_dirty = True
+                if rows:
+                    self.commit_rows(rows)
+        self.scenes_exhausted = reached_end and not self.quotas_met()
 
     def run(self) -> None:
+        self.load_existing()
+        if self.quotas_met():
+            self.finalize(complete=True)
+            return
         scenes = self.load_scenes()
         if not scenes:
             raise RuntimeError("No scenes were loaded")
+        if self.scenes_exhausted:
+            self.resume_scene_index = 0
+            self.scenes_exhausted = False
         initial_scene = scenes[0][0]
         bootstrap_index = self.config.get("bootstrap_procthor_index")
         if bootstrap_index is not None:
@@ -1112,108 +1650,9 @@ class ThorDataGenerator:
             )
         self.start_controller(initial_scene)
         print("Controller ready", flush=True)
-        generation = self.generation_config
         try:
-            for house, scene_id in scenes:
-                if self.pair_complete() and self.non_pair_complete():
-                    break
-                print(f"Loading scene={scene_id}", flush=True)
-                if not self.reset_scene(house):
-                    continue
-                reachable = self.get_reachable_positions()
-                if not reachable:
-                    self.rejections["no_reachable_positions"] += 1
-                    continue
-
-                view_attempts = int(generation["max_views_per_scene"])
-                for _ in range(view_attempts):
-                    if self.pair_complete() and self.non_pair_complete():
-                        break
-                    if self.scene_counts[scene_id] >= int(generation["max_samples_per_scene"]):
-                        break
-                    if not self.reset_scene(house):
-                        break
-                    pose = {
-                        "position": self.rng.choice(reachable),
-                        "rotation": {
-                            "x": 0.0,
-                            "y": float(self.rng.choice(generation["camera_rotations"])),
-                            "z": 0.0,
-                        },
-                        "horizon": float(self.rng.choice(generation["camera_horizons"])),
-                    }
-                    event = self.teleport_camera(pose)
-                    if event is None or len(visible_objects(event)) < 2:
-                        self.rejections["insufficient_visible_objects"] += 1
-                        continue
-                    context = SceneContext(house=house, scene_id=scene_id, camera_pose=pose)
-
-                    if not self.pair_complete() and self.scene_counts[scene_id] <= int(
-                        generation["max_samples_per_scene"]
-                    ) - 2:
-                        pair_rows = self.try_counterfactual_pair(context, event)
-                        if pair_rows is None:
-                            pair_rows = self.try_open_state_pair(context, event)
-                        if pair_rows is not None:
-                            self.rows.extend(pair_rows)
-                            print(
-                                f"scene={scene_id} samples={len(self.rows)}/{self.target_sample_count()} "
-                                f"groups={dict(self.group_counts)}",
-                                flush=True,
-                            )
-                            continue
-
-                    for group in self.remaining_groups():
-                        if not self.reset_scene(house):
-                            break
-                        task_event = self.teleport_camera(pose)
-                        if task_event is None:
-                            continue
-                        candidate = (
-                            self.make_pickup_candidate(task_event)
-                            if group == "pickup"
-                            else self.make_atomic_candidate(task_event, group)
-                        )
-                        if candidate is None:
-                            self.rejections[f"no_candidate:{group}"] += 1
-                            continue
-                        # Some state setup actions change the current view. Return to the
-                        # fixed camera before checking visibility and saving the RGB frame.
-                        task_event = self.teleport_camera(pose)
-                        if task_event is None:
-                            continue
-                        row = self.save_sample(context, task_event, candidate)
-                        if row is not None:
-                            self.rows.append(row)
-                            print(
-                                f"scene={scene_id} samples={len(self.rows)}/{self.target_sample_count()} "
-                                f"groups={dict(self.group_counts)}",
-                                flush=True,
-                            )
-                            break
-
-            expected = self.target_sample_count()
-            if len(self.rows) != expected:
-                raise RuntimeError(
-                    f"Generation incomplete: expected {expected}, produced {len(self.rows)}. "
-                    f"Counts={dict(self.group_counts)}, rejections={dict(self.rejections)}"
-                )
-            self.assign_wrong_images()
-            write_jsonl(self.samples_path, self.rows)
-            write_json(
-                self.report_path,
-                {
-                    "seed": self.config["seed"],
-                    "source": self.config["source"],
-                    "sample_count": len(self.rows),
-                    "scene_count": len(self.scene_counts),
-                    "group_counts": dict(self.group_counts),
-                    "scene_counts": dict(self.scene_counts),
-                    "counterfactual_ratio": self.group_counts["counterfactual_put"]
-                    / len(self.rows),
-                    "rejections": dict(self.rejections),
-                },
-            )
+            self.generate_from_scenes(scenes)
+            self.finalize(complete=self.quotas_met())
         finally:
             if self.controller is not None:
                 self.controller.stop()
@@ -1231,10 +1670,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Delete only previously generated samples.jsonl, report, and images before generation",
+        help="Delete existing samples, images, and checkpoints and start from scratch. "
+        "Without this flag, an existing output directory is resumed.",
     )
     parser.add_argument("--shard-index", type=int)
     parser.add_argument("--shard-count", type=int)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Launch this many processes, each with its own Controller, sharding houses "
+        "via --shard-index/--shard-count. Use 1 for a single process.",
+    )
     return parser
 
 
@@ -1242,31 +1689,68 @@ def apply_shard(config: dict[str, Any], shard_index: int, shard_count: int) -> N
     if shard_count < 1 or not 0 <= shard_index < shard_count:
         raise ValueError("Require shard_count >= 1 and 0 <= shard_index < shard_count")
     scene_total = int(config["num_scenes"])
-    scene_base, scene_remainder = divmod(scene_total, shard_count)
-    scene_sizes = [
-        scene_base + (1 if index < scene_remainder else 0)
-        for index in range(shard_count)
-    ]
-    config["scene_offset"] = sum(scene_sizes[:shard_index])
-    config["num_scenes"] = scene_sizes[shard_index]
+    config["scene_offset"] = sum(
+        split_count(scene_total, index, shard_count) for index in range(shard_index)
+    )
+    config["num_scenes"] = split_count(scene_total, shard_index, shard_count)
     shard_output_root = str(config.get("shard_output_root", "shard_data")).rstrip("/\\")
     config["output_dir"] = f"{shard_output_root}/shard_{shard_index}"
 
     generation = config["generation"]
-    pair_total = int(generation["counterfactual_pairs"])
-    if pair_total % shard_count:
-        raise ValueError("counterfactual_pairs must divide evenly across shards")
-    generation["counterfactual_pairs"] = pair_total // shard_count
+    generation["counterfactual_pairs"] = split_count(
+        int(generation["counterfactual_pairs"]), shard_index, shard_count
+    )
     for group, quota in list(generation["group_quotas"].items()):
-        quota = int(quota)
-        if quota % shard_count:
-            raise ValueError(f"Quota for {group} must divide evenly across shards")
-        generation["group_quotas"][group] = quota // shard_count
+        generation["group_quotas"][group] = split_count(int(quota), shard_index, shard_count)
+
+
+def launch_workers(config_path: Path, overwrite: bool, worker_count: int) -> None:
+    if worker_count < 1:
+        raise ValueError("--workers must be >= 1")
+    if __package__:
+        command_prefix = [sys.executable, "-m", f"{__package__}.generate_data"]
+    else:
+        command_prefix = [sys.executable, str(Path(__file__).resolve())]
+    processes: list[tuple[int, subprocess.Popen[Any]]] = []
+    for shard_index in range(worker_count):
+        command = [
+            *command_prefix,
+            "--config",
+            str(config_path),
+            "--shard-index",
+            str(shard_index),
+            "--shard-count",
+            str(worker_count),
+        ]
+        if overwrite:
+            command.append("--overwrite")
+        print(f"Launching worker shard={shard_index}/{worker_count}", flush=True)
+        processes.append((shard_index, subprocess.Popen(command)))
+    failures: list[str] = []
+    for shard_index, process in processes:
+        code = process.wait()
+        if code != 0:
+            failures.append(f"shard_{shard_index}:exit {code}")
+    if failures:
+        raise RuntimeError(
+            "One or more generation workers failed: "
+            + ", ".join(failures)
+            + ". Successful shards were kept; rerun without --overwrite to resume."
+        )
 
 
 def main() -> None:
     args = build_parser().parse_args()
     config_path = args.config.resolve()
+    worker_count = int(args.workers)
+    if worker_count < 1:
+        raise ValueError("--workers must be >= 1")
+    if worker_count > 1 and (args.shard_index is not None or args.shard_count is not None):
+        raise ValueError("Cannot combine --workers with --shard-index/--shard-count")
+    if worker_count > 1:
+        launch_workers(config_path, bool(args.overwrite), worker_count)
+        print(f"All {worker_count} workers finished. Merge with exp0.merge_shards.")
+        return
     config = load_json(config_path)
     if (args.shard_index is None) != (args.shard_count is None):
         raise ValueError("--shard-index and --shard-count must be provided together")
@@ -1274,7 +1758,7 @@ def main() -> None:
         apply_shard(config, args.shard_index, args.shard_count)
     generator = ThorDataGenerator(config, config_path, args.overwrite)
     generator.run()
-    print(f"Generated {len(generator.rows)} samples at {generator.samples_path}")
+    print(f"Generated {generator.committed_count} samples at {generator.samples_path}")
 
 
 if __name__ == "__main__":

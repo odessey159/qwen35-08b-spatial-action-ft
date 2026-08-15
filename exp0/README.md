@@ -36,6 +36,15 @@ ProcTHOR 主分片与 iTHOR `HeatObject` 分片合并而成：
 python -m exp0.generate_data
 ```
 
+生成器会把样本流式追加到 `samples.jsonl`。中断后再次运行同一命令会从已有文件续跑；只有需要推倒重来时才加 `--overwrite`。
+
+一卡多进程时按 house 分片，每个进程一个 Controller：
+
+```bash
+AI2THOR_PLATFORM=CloudRendering python -m exp0.generate_data \
+  --config exp0/generator_config.json --workers 4
+```
+
 无可用 Vulkan 图形栈的 Linux 服务器可在 Xvfb 中改用 Linux64 构建：
 
 ```bash
@@ -83,7 +92,7 @@ done
 .venv/bin/python -m exp0.validate_generated_data --dataset-dir exp0/data
 ```
 
-重新生成会删除对应输出分片中的旧图像，因此必须显式添加 `--overwrite`。
+重新生成并清空对应输出分片时，必须显式添加 `--overwrite`。不加该参数时，已有 `samples.jsonl` 会作为断点续跑。
 
 ## 五条件实现
 
