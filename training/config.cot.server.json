@@ -1,0 +1,19 @@
+{
+  "extends": "config.server.json",
+  "model": {
+    "output_dir": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-cot-full"
+  },
+  "data": {
+    "source_dataset": "../exp0/data_cot/samples_cot.jsonl",
+    "prepared_dir": "prepared/cot-full",
+    "response_format": "cot"
+  },
+  "training": {
+    "use_liger_kernel": false,
+    "section_loss_weights": {
+      "state": 0.3,
+      "plan": 0.3,
+      "action": 0.4
+    }
+  }
+}

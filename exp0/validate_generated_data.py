@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
+
+from .data_quality import (
+    ATOMIC_GROUPS,
+    generation_quality_summary,
+    instruction_plan_collisions,
+    parse_action,
+)
 
 
 EXPECTED_GROUPS = {
@@ -68,6 +76,8 @@ def main() -> None:
     plan_lengths: Counter[int] = Counter()
     counterfactual_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
+    image_hashes: dict[str, str] = {}
+
     for row in rows:
         meta = row["meta"]
         group = str(meta["task_group"])
@@ -84,8 +94,66 @@ def main() -> None:
             f"{row['sample_id']} plan_length mismatch",
         )
 
+        actions = [parse_action(action) for action in row["gold"]["plan_actions"]]
+        if group in ATOMIC_GROUPS:
+            require(
+                len(actions) >= 2 and actions[0] is not None and actions[-1] is not None,
+                f"{row['sample_id']} has malformed atomic plan",
+            )
+            goto = actions[0]
+            target_action = actions[-1]
+            assert goto is not None and target_action is not None
+            require(
+                goto[0] == "GotoLocation" and bool(goto[1]) and bool(target_action[1]),
+                f"{row['sample_id']} has malformed atomic action arguments",
+            )
+
+            scene_objects = row["scene_graph"]["objects"]
+            type_by_alias = {
+                str(obj["id"]): str(obj["type"])
+                for obj in scene_objects
+                if obj.get("id") != "Agent"
+            }
+            goto_type = goto[1][0]
+            target_type = target_action[1][0]
+            require(
+                goto_type in set(type_by_alias.values()),
+                f"{row['sample_id']} GotoLocation target is missing from scene graph",
+            )
+            visible_parent_types = {
+                type_by_alias[str(relation["object"])]
+                for relation in row["scene_graph"]["relations"]
+                if relation.get("relation") in {"in", "on"}
+                and type_by_alias.get(str(relation.get("subject"))) == target_type
+                and str(relation.get("object")) in type_by_alias
+            }
+            if visible_parent_types:
+                require(
+                    goto_type in visible_parent_types,
+                    f"{row['sample_id']} must navigate to visible parent; "
+                    f"got {goto_type}, expected one of {sorted(visible_parent_types)}",
+                )
+            else:
+                require(
+                    goto_type == target_type,
+                    f"{row['sample_id']} has no visible parent and must navigate to target",
+                )
+
+            instruction = str(row["instruction"])
+            if target_action[0] == "ToggleObject":
+                require(
+                    "打开" not in instruction,
+                    f"{row['sample_id']} uses ambiguous 打开 for ToggleObject",
+                )
+            if target_action[0] in {"OpenObject", "CloseObject"}:
+                require(
+                    "开启" not in instruction,
+                    f"{row['sample_id']} uses device verb 开启 for open/close action",
+                )
+
         image_path = dataset_dir / str(row["image"])
         require(image_path.is_file(), f"missing image: {image_path}")
+        image_hashes[str(row["image"])] = hashlib.sha256(image_path.read_bytes()).hexdigest()
         with Image.open(image_path) as image:
             require(
                 image.size == (args.width, args.height),
@@ -103,6 +171,19 @@ def main() -> None:
         pair_id = meta.get("counterfactual_group")
         if pair_id:
             counterfactual_groups[str(pair_id)].append(row)
+
+    collisions = instruction_plan_collisions(
+        rows, image_identity=lambda row: image_hashes[str(row["image"])]
+    )
+    if collisions:
+        (image_hash, instruction), plans = next(iter(collisions.items()))
+        rendered_plans = sorted(" -> ".join(plan) for plan in plans)
+        require(
+            False,
+            "ambiguous (image, instruction) maps to multiple gold plans: "
+            f"image_sha256={image_hash!r}, instruction={instruction!r}, "
+            f"plans={rendered_plans}",
+        )
 
     expected_groups = EXPECTED_GROUPS
     if args.expected_group:
@@ -149,6 +230,9 @@ def main() -> None:
         "counterfactual_pairs": len(counterfactual_groups),
         "all_sim_verified": True,
         "all_wrong_images_cross_scene": True,
+        **generation_quality_summary(
+            rows, image_identity=lambda row: image_hashes[str(row["image"])]
+        ),
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 

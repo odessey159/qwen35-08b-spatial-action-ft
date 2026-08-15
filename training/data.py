@@ -6,7 +6,7 @@ import random
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from exp0.prompts import system_prompt
 
@@ -21,6 +21,8 @@ class NormalizedSample:
     sample_id: str
     image_path: Path
     instruction: str
+    spatial_state: str
+    subgoals: str
     plan_actions: tuple[str, ...]
     plan_nl: str
     metadata: dict[str, Any]
@@ -50,11 +52,36 @@ def _nonempty_text(value: Any, field: str, sample_id: str) -> str:
     return value.strip()
 
 
+def _text_block(value: Any, field: str, sample_id: str, required: bool) -> str:
+    if value is None:
+        text = ""
+    elif isinstance(value, str):
+        text = value.strip()
+    elif isinstance(value, list) and all(isinstance(item, str) for item in value):
+        text = "\n".join(item.strip() for item in value if item.strip())
+    else:
+        raise TrainingConfigError(f"{sample_id}: '{field}' must be a string or list of strings")
+    if required and not text:
+        raise TrainingConfigError(f"{sample_id}: '{field}' must be non-empty")
+    return text
+
+
+def _supervision_mode(data_config: dict[str, Any]) -> str:
+    value = str(data_config.get("supervision_mode", "baseline"))
+    allowed = {"baseline", "plan_only", "full_cot"}
+    if value not in allowed:
+        raise TrainingConfigError(
+            f"data.supervision_mode must be one of {sorted(allowed)}; got {value!r}"
+        )
+    return value
+
+
 def _normalize_sample(
     row: dict[str, Any],
     index: int,
     source_dir: Path,
     require_sim_verified: bool,
+    supervision_mode: str,
 ) -> NormalizedSample:
     sample_id = str(row.get("sample_id") or f"row_{index:07d}")
     image_value = _nonempty_text(row.get("image"), "image", sample_id)
@@ -78,13 +105,27 @@ def _normalize_sample(
         if not ACTION_PATTERN.fullmatch(normalized):
             raise TrainingConfigError(f"{sample_id}: invalid action syntax: {normalized}")
         actions.append(normalized)
-    plan_nl = _nonempty_text(gold.get("plan_nl"), "plan_nl", sample_id)
 
-    metadata_value = row.get("_meta", row.get("meta", {}))
+    spatial_state = _text_block(
+        gold.get("spatial_state"),
+        "gold.spatial_state",
+        sample_id,
+        required=supervision_mode == "full_cot",
+    )
+    subgoals = _text_block(
+        gold.get("subgoals"),
+        "gold.subgoals",
+        sample_id,
+        required=supervision_mode in {"plan_only", "full_cot"},
+    )
+    plan_nl = _nonempty_text(gold.get("plan_nl"), "gold.plan_nl", sample_id)
+
+    metadata_value = row.get("_meta", row.get("meta", row.get("metadata", {})))
     if not isinstance(metadata_value, dict):
         raise TrainingConfigError(f"{sample_id}: '_meta/meta' must be a JSON object")
     metadata = dict(metadata_value)
-    if require_sim_verified and metadata.get("sim_verified") is not True:
+    verified = metadata.get("sim_verified") is True or metadata.get("verified") is True
+    if require_sim_verified and not verified:
         raise TrainingConfigError(f"{sample_id}: sim_verified must be true")
     if metadata.get("target_visible") is False:
         raise TrainingConfigError(f"{sample_id}: target_visible must not be false")
@@ -93,32 +134,67 @@ def _normalize_sample(
         sample_id=sample_id,
         image_path=image_path,
         instruction=instruction,
+        spatial_state=spatial_state,
+        subgoals=subgoals,
         plan_actions=tuple(actions),
         plan_nl=plan_nl,
         metadata=metadata,
     )
 
 
-def _swift_row(sample: NormalizedSample, allowed_actions: list[str]) -> dict[str, Any]:
-    """One ms-swift row whose prompt matches the Exp 0 condition-A prompt exactly.
+def _intermediate_system_prompt(allowed_actions: list[str], supervision_mode: str) -> str:
+    sections = ["<subgoal>", "<plan>", "<summary>"]
+    if supervision_mode == "full_cot":
+        sections.insert(0, "<state>")
+    return (
+        "你是一个室内家务动作规划助手。\n"
+        f"回答必须且只能依次包含 {'、'.join(sections)}，不要复述题目或添加其他段落。\n"
+        + (
+            "<state> 只写由场景标注提供的空间状态，不要补充猜测。\n"
+            if supervision_mode == "full_cot"
+            else ""
+        )
+        + "<subgoal> 写高层子目标，每行一个。\n"
+        "<plan> 每行写一个可执行动作，格式为 动作名(物体名)，多个参数用英文逗号。\n"
+        "<summary> 用一句中文概括同一动作计划。\n"
+        "动作名只能从以下集合选择："
+        + "、".join(allowed_actions)
+        + "。"
+    )
 
-    The system text is imported from `exp0.prompts` rather than duplicated so the
-    zero-shot baseline and the fine-tuned model cannot drift apart -- a pre/post
-    comparison across two different prompts measures the prompt, not the tuning.
-    The old local copy of the contract carried the literal `ActionName(Object)`
-    placeholder, which the base model reproduced verbatim in 61% of D outputs.
-    """
+
+def _assistant_content(sample: NormalizedSample, supervision_mode: str) -> str:
+    blocks: list[str] = []
+    if supervision_mode == "full_cot":
+        blocks.append(f"<state>\n{sample.spatial_state}\n</state>")
+    if supervision_mode in {"plan_only", "full_cot"}:
+        blocks.append(f"<subgoal>\n{sample.subgoals}\n</subgoal>")
+    blocks.extend(
+        [
+            "<plan>\n" + "\n".join(sample.plan_actions) + "\n</plan>",
+            f"<summary>\n{sample.plan_nl}\n</summary>",
+        ]
+    )
+    return "\n\n".join(blocks)
+
+
+def _swift_row(
+    sample: NormalizedSample,
+    allowed_actions: list[str],
+    supervision_mode: str,
+) -> dict[str, Any]:
+    system = (
+        system_prompt(allowed_actions, inline_example=True)
+        if supervision_mode == "baseline"
+        else _intermediate_system_prompt(allowed_actions, supervision_mode)
+    )
     return {
         "messages": [
-            {"role": "system", "content": system_prompt(allowed_actions, inline_example=True)},
+            {"role": "system", "content": system},
             {"role": "user", "content": f"<image>\n目标指令：{sample.instruction}"},
             {
                 "role": "assistant",
-                "content": (
-                    "<plan>\n"
-                    + "\n".join(sample.plan_actions)
-                    + f"\n</plan>\n<summary>\n{sample.plan_nl}\n</summary>"
-                ),
+                "content": _assistant_content(sample, supervision_mode),
             },
         ],
         "images": [str(sample.image_path)],
@@ -218,6 +294,12 @@ def _write_json(path: Path, value: Any) -> None:
 
 def prepare_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool) -> dict[str, Any]:
     data_config = require_mapping(config.get("data"), "data")
+    supervision_mode = _supervision_mode(data_config)
+    training_config = require_mapping(config.get("training"), "training")
+    if "section_loss_weights" in training_config:
+        raise TrainingConfigError(
+            "training.section_loss_weights is not supported; standard SFT trains all assistant tokens"
+        )
     source_path = resolve_path(base_dir, str(data_config.get("source_dataset", "")))
     if not source_path.is_file():
         raise FileNotFoundError(f"Source dataset does not exist: {source_path}")
@@ -236,15 +318,15 @@ def prepare_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool) -> 
         raise TrainingConfigError("'allowed_actions' must be a non-empty list")
     allowed_actions = [str(value) for value in allowed_actions_value]
     allowed_set = set(allowed_actions)
-    source_rows = _read_jsonl(source_path)
     samples = [
         _normalize_sample(
             row,
             index,
             source_path.parent,
             bool(data_config.get("require_sim_verified", True)),
+            supervision_mode,
         )
-        for index, row in enumerate(source_rows, start=1)
+        for index, row in enumerate(_read_jsonl(source_path), start=1)
     ]
     sample_ids = [sample.sample_id for sample in samples]
     if len(sample_ids) != len(set(sample_ids)):
@@ -277,16 +359,20 @@ def prepare_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool) -> 
     if not train_indices:
         raise TrainingConfigError("Training split is empty")
 
-    _write_jsonl(train_path, (_swift_row(samples[index], allowed_actions) for index in train_indices))
-    _write_jsonl(
-        val_path, (_swift_row(samples[index], allowed_actions) for index in ordered_val_indices)
-    )
-    source_hash = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    def converted(indices: Iterable[int]) -> Iterable[dict[str, Any]]:
+        return (
+            _swift_row(samples[index], allowed_actions, supervision_mode)
+            for index in indices
+        )
+
+    _write_jsonl(train_path, converted(train_indices))
+    _write_jsonl(val_path, converted(ordered_val_indices))
     manifest = {
         "source_dataset": str(source_path),
-        "source_sha256": source_hash,
+        "source_sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
         "seed": seed,
         "validation_ratio_requested": validation_ratio,
+        "supervision_mode": supervision_mode,
         "split_group_fields": group_fields_value,
         "total_samples": len(samples),
         "train_samples": len(train_indices),
@@ -300,6 +386,12 @@ def prepare_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool) -> 
 
 def validate_prepared_dataset(config: dict[str, Any], base_dir: Path) -> dict[str, int]:
     data_config = require_mapping(config.get("data"), "data")
+    supervision_mode = _supervision_mode(data_config)
+    training_config = require_mapping(config.get("training"), "training")
+    if "section_loss_weights" in training_config:
+        raise TrainingConfigError(
+            "training.section_loss_weights is not supported; standard SFT trains all assistant tokens"
+        )
     output_dir = resolve_path(base_dir, str(data_config.get("prepared_dir", "prepared")))
     counts: dict[str, int] = {}
     for split in ("train", "val"):
@@ -318,21 +410,41 @@ def validate_prepared_dataset(config: dict[str, Any], base_dir: Path) -> dict[st
                 raise TrainingConfigError(f"{path}:{index}: expected exactly one image")
             if not Path(str(images[0])).is_file():
                 raise TrainingConfigError(f"{path}:{index}: image does not exist: {images[0]}")
-            if messages[0].get("role") != "system" or "<summary>" not in str(
-                messages[0].get("content", "")
-            ):
+            system_text = str(messages[0].get("content", ""))
+            if messages[0].get("role") != "system" or "<summary>" not in system_text:
                 raise TrainingConfigError(f"{path}:{index}: invalid system message")
             if messages[1].get("role") != "user" or "<image>" not in str(
                 messages[1].get("content", "")
             ):
                 raise TrainingConfigError(f"{path}:{index}: invalid multimodal user message")
-            assistant = str(messages[2].get("content", ""))
-            if messages[2].get("role") != "assistant" or "<plan>" not in assistant:
+            assistant_message = messages[2]
+            if assistant_message.get("role") != "assistant":
                 raise TrainingConfigError(f"{path}:{index}: invalid assistant response")
-            if "<summary>" not in assistant:
+            assistant_value = assistant_message.get("content")
+            if not isinstance(assistant_value, str) or not assistant_value.strip():
                 raise TrainingConfigError(
-                    f"{path}:{index}: assistant response is missing the <summary> block"
+                    f"{path}:{index}: assistant.content must be a non-empty string"
                 )
+            assistant = assistant_value.strip()
+            required_tags = ["plan", "summary"]
+            if supervision_mode == "plan_only":
+                required_tags.insert(0, "subgoal")
+            elif supervision_mode == "full_cot":
+                required_tags[0:0] = ["state", "subgoal"]
+            positions: list[int] = []
+            for tag in required_tags:
+                opening, closing = f"<{tag}>", f"</{tag}>"
+                if opening not in assistant or closing not in assistant:
+                    raise TrainingConfigError(
+                        f"{path}:{index}: assistant response is missing the <{tag}> block"
+                    )
+                positions.append(assistant.index(opening))
+            if positions != sorted(positions):
+                raise TrainingConfigError(
+                    f"{path}:{index}: assistant blocks are not in the required order"
+                )
+            if "loss_scale" in assistant_message:
+                raise TrainingConfigError(f"{path}:{index}: per-section loss_scale is not allowed")
         counts[split] = len(rows)
     if counts["train"] == 0:
         raise TrainingConfigError("Prepared training split is empty")

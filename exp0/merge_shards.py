@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import random
 import shutil
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
+
+try:
+    from .data_quality import generation_quality_summary, instruction_plan_collisions
+except ImportError:  # Support `python exp0/merge_shards.py` from the repository root.
+    from data_quality import generation_quality_summary, instruction_plan_collisions
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -76,10 +82,14 @@ def main() -> None:
             old_image = Path(str(row["image"]))
             suffix = old_image.stem[len(old_id) :] if old_image.stem.startswith(old_id) else ""
             new_name = f"{new_id}{suffix}{old_image.suffix}"
-            shutil.copy2(shard_dir / old_image, images_dir / new_name)
+            new_image_path = images_dir / new_name
+            shutil.copy2(shard_dir / old_image, new_image_path)
             row["sample_id"] = new_id
             row["image"] = f"images/{new_name}"
             row["wrong_image"] = ""
+            row["meta"]["image_sha256"] = hashlib.sha256(
+                new_image_path.read_bytes()
+            ).hexdigest()
             counterfactual_group = row["meta"].get("counterfactual_group")
             if counterfactual_group:
                 row["meta"]["counterfactual_group"] = (
@@ -95,6 +105,14 @@ def main() -> None:
         )
     if len(scene_counts) < 2:
         raise RuntimeError("A_prime requires at least two scenes")
+
+    collisions = instruction_plan_collisions(rows)
+    if collisions:
+        image, instruction = next(iter(collisions))
+        raise RuntimeError(
+            "Ambiguous merged input maps to multiple gold plans: "
+            f"image={image!r}, instruction={instruction!r}"
+        )
 
     rng = random.Random(args.seed)
     by_scene: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -120,6 +138,7 @@ def main() -> None:
             "counterfactual_ratio": group_counts["counterfactual_put"] / len(rows),
             "rejections": dict(rejection_counts),
             "shard_reports": shard_reports,
+            **generation_quality_summary(rows),
         },
     )
     print(

@@ -92,7 +92,25 @@ done
 .venv/bin/python -m exp0.validate_generated_data --dataset-dir exp0/data
 ```
 
+生成与合并阶段都会拒绝同一图像内容和 instruction 对应多个 gold plan 的数据。
+`generation_report.json` 还会记录 `instruction_collision`、`action_distribution` 和
+`goto_schema`。其中 `goto_schema` 只统计 atomic 任务：存在可见父容器时必须导航到父容器；
+没有可见父容器时允许回退到目标对象，并计入 `object_location`。
+
 重新生成并清空对应输出分片时，必须显式添加 `--overwrite`。不加该参数时，已有 `samples.jsonl` 会作为断点续跑。
+
+## 构建训练用 CoT 数据
+
+下面的命令从 scene graph、`spatial_facts` 和 simulator action trajectory 生成
+task-relevant state、高层 plan 与原始 primitive action；整个过程不调用 LLM：
+
+```bash
+python -m exp0.generate_cot_data --overwrite
+```
+
+默认输出为 `exp0/data_cot/samples_cot.jsonl`，assistant 格式为
+`<state> + <plan> + <action>`；结构化 `oracle` 字段用于逐条验证三段内容。
+同目录的 `generation_report.json` 记录样本数与三段平均 token 长度。
 
 ## 五条件实现
 
@@ -123,13 +141,16 @@ OpenObject(Fridge)
 </summary>
 ```
 
-**`<plan>` 是主指标**（`primary_metric = action_seq_em`）。词表封闭，精确匹配无歧义，
-不需要 judge，也直接对应训练时算 loss 的那段目标。打分走宽松解析器：接受
+**primitive action sequence 是主指标**（`primary_metric = action_seq_em`）。embodied CoT
+输出时解析器优先读取 `<action>`，旧实验则兼容回退到 `<plan>`。词表封闭，精确匹配无歧义，
+不需要 judge。打分走宽松解析器：接受
 `GotoLocation Fridge`（无括号）、大小写漂移、行首编号和列表符号，并丢弃词表外的动作名
 ——第一轮 99.3% 的动作行是无括号形式，被严格正则整体判死。严格解析结果仍然保留，但只
 作为 `strict_*` 格式合规率上报，不代表能力。
 
-**`<summary>` 是次指标。** `nl_plan_match` = 全部 gold 步骤在自然语言里按顺序出现，且
+**`<summary>` 是旧双输出协议的次指标。** 使用 `exp0/config.cot.server.json` 评估新模型时，
+模型只输出 `<action>`，诊断结论只使用 action 主指标。旧协议中 `nl_plan_match` = 全部 gold
+步骤在自然语言里按顺序出现，且
 物体名齐全，判定用同义词表（`schema.ACTION_NL_KEYWORDS`），所以"把门拉开"和"打开"都
 算对，不需要 SBERT 或 LLM judge。`scored_predictions.json` 里保留了 `pred_nl` 和
 `gold_nl`，想事后接 judge 随时可以。

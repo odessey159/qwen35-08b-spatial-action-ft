@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .common import load_config
+from .cot_data import prepare_cot_dataset, uses_embodied_format, validate_cot_prepared_dataset
 from .data import prepare_dataset, validate_prepared_dataset
 from .launcher import build_environment, build_swift_command, format_command, run_training
 from .runtime import check_runtime
@@ -32,9 +33,17 @@ def main() -> None:
     args = build_parser().parse_args()
     config, base_dir = load_config(args.config)
     if args.command == "prepare":
-        result = prepare_dataset(config, base_dir, bool(args.overwrite))
+        result = (
+            prepare_cot_dataset(config, base_dir, bool(args.overwrite))
+            if uses_embodied_format(config)
+            else prepare_dataset(config, base_dir, bool(args.overwrite))
+        )
     elif args.command == "validate":
-        result = validate_prepared_dataset(config, base_dir)
+        result = (
+            validate_cot_prepared_dataset(config, base_dir)
+            if uses_embodied_format(config)
+            else validate_prepared_dataset(config, base_dir)
+        )
     elif args.command == "check-runtime":
         result = check_runtime(config)
     elif args.command == "show-command":
@@ -51,4 +60,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

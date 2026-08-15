@@ -1,0 +1,7 @@
+{
+  "extends": "config.server.json",
+  "output_dir": "outputs_cot",
+  "model": {
+    "response_format": "action"
+  }
+}

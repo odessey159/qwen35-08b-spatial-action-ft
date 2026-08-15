@@ -4,13 +4,14 @@
 > **v2 修订**:数据方案改为**自建 VQA 为主**,ALFRED 降级为仅提供词表与任务模板;新增反事实配对设计、单图 planning VQA 数据集调研(附录 A)、双变量 Pilot 设计。
 > **v3 修订**:Exp 0 诊断实验重写为**五条件检测**(推理时消融,非训练)。新增完整 oracle 下限检查 D 与错误图像基线 A′;把"空间事实 oracle"与"子目标 oracle"拆开;补充序列化格式混淆变量的处理;明确仅在全部贴地板时才升级为短 LoRA 重测。
 > **v4 修订**:**场景域拍板为 B(单房间可见范围),不再做域选型 Pilot**。Exp 1 收窄为图像来源与渲染分辨率两个变量;§4.2 补入单房间约束;§4.6、§9 相应调整。
-> 状态:规格已闭合,数据构造未开始。
+> **v5 修订**:任务从 `image + instruction → action plan` 改为**结构化 embodied CoT**;用 `<state>` / `<subgoal>` / `<plan>` 分别监督视觉空间理解、高层任务分解与原子动作执行;主实验改为 action-only / subgoal / full embodied CoT 三组递进消融。
+> 状态:Exp 0 零样本诊断已完成;embodied reasoning 训练数据与训练接口待按 v5 规格统一。
 
 ---
 
 ## 0. 一句话概括
 
-微调 Qwen3.5-0.8B,使其在给定**单张室内场景图 + 一条明确目标指令**时,输出**可执行的动作步骤序列**;通过 FT 前后对比,量化该模型在**定性空间推理 + 动作分解**上的提升幅度。
+微调 Qwen3.5-0.8B,使其在给定**单张室内场景图 + 一条目标指令**时,学习从**视觉空间理解→任务分解→动作执行**的完整 embodied reasoning 链路,并输出可执行动作序列;通过 FT 前后与中间监督消融对比,量化空间 grounding 与多步规划的提升幅度。
 
 ---
 
@@ -18,13 +19,13 @@
 
 | 项 | 取值 |
 |---|---|
-| **数据格式** | **VQA**:(单图, 单条 prompt, plan) 三元组。无轨迹、无视频、无多帧、无动作历史 |
+| **数据格式** | **Embodied reasoning**:(单图, 单条 prompt, state, subgoal, action) 五元组。无视频、无多帧、无动作历史;仿真轨迹仅用于生成与验证标签 |
 | **输入** | 单张室内场景渲染图 + 一条明确目标指令("从冰箱拿瓶水"级别) |
 | **输入不含** | 任何坐标、bbox、深度、场景图等结构化位置信息 |
-| **输出** | 双格式:受限动作序列 + 自然语言步骤,**序列在前** |
-| **能力范围** | 定性空间关系(上/下/左/右/远/近、在……里/上)+ 动作分解 |
+| **输出** | **Structured embodied CoT**:`<state>` 任务相关空间事实 + `<subgoal>` 高层任务分解 + `<plan>` 原子动作序列 |
+| **能力范围** | 定性空间关系(上/下/左/右/远/近、在……里/上)+ 任务状态识别 + 高层任务分解 + 原子动作执行 |
 | **明确排除** | 定量距离估计、意图推断、机器人本体接入、真机成功率评估 |
-| **项目定位** | 纯 VLM 能力测试。任务形式为具身式规划,但不接本体、不做 VLA |
+| **项目定位** | 纯 VLM 的 embodied reasoning 能力测试。任务形式为具身式规划,但不接本体、不做 VLA |
 | **训练方式** | LoRA |
 | **数据规模** | 约 10 万条 |
 | **场景域** | **已拍板:单房间可见范围**(目标物体与容器均在画面内),不做域选型 |
@@ -34,19 +35,36 @@
 ### 1.1 输出格式
 
 ```
+<state>
+Apple is inside Fridge.
+Fridge is closed.
+Table is the destination.
+</state>
+
+<subgoal>
+Acquire the apple.
+Move the apple to the table.
+Place the apple.
+</subgoal>
+
 <plan>
 GotoLocation(Fridge)
 OpenObject(Fridge)
-PickupObject(WaterBottle)
-CloseObject(Fridge)
+PickupObject(Apple)
+GotoLocation(Table)
+PutObject(Apple,Table)
 </plan>
-走到冰箱前,拉开冰箱门,拿出一瓶水,然后关上冰箱门。
 ```
 
-**动作序列在前、自然语言在后**的理由:
-- 自然语言可 condition 在动作序列上,两者一致性更高
-- 评测时前半段精确匹配自动打分,后半段用 SBERT / LLM judge
-- 风险:输出长度约翻倍,吃 seq len 预算(见 §3.3)
+**三个区块的监督职责**:
+
+- `<state>`:只输出与当前任务有关、可从仿真器状态验证的空间事实与物体状态,监督视觉空间理解。
+- `<subgoal>`:输出与具体动作 API 解耦的高层任务分解,监督多步规划。
+- `<plan>`:输出封闭 action vocabulary 内的可执行原子动作,继续作为主评测对象。
+
+不再输出自然语言 summary;新的中间标签必须 simulator-grounded,而不是对 `<plan>` 的自由复述。
+
+> 上例仅展示三个 block 的序列化格式。正式数据仍必须满足 §4.2 的可见性约束:若关闭的 Fridge 使 Apple 无法从当前图像观测,则不得把 `Apple is inside Fridge.` 作为该图的训练标签。
 
 ### 1.2 动作词表(沿用 ALFRED 定义,不用其数据)
 
@@ -165,17 +183,53 @@ SpatialVLM 报告:定量距离估计**仅 37.2% 的答案落在 ground truth 的
 --loss_scale ignore_empty_think
 ```
 
-双输出格式使目标序列长度约翻倍,`max_length` 需相应留余量。
+结构化 embodied CoT 比 action-only 的目标序列更长,`max_length` 需按 `<state> + <subgoal> + <plan>` 的长度分布留余量,并分实验记录 assistant token 数。
+
+### 3.4 Intermediate Supervision:Embodied CoT
+
+**训练目标**:让模型在同一个 causal LM 目标内显式学习三段串联链路。
+
+输入:
+
+```
+image + instruction
+```
+
+输出:
+
+```
+<state>
+task-relevant spatial understanding
+</state>
+
+<subgoal>
+high-level task decomposition
+</subgoal>
+
+<plan>
+primitive action execution
+</plan>
+```
+
+第一版不引入额外 loss weighting。概念上将 assistant token 的监督分为:
+
+\[
+L = L_{state} + L_{subgoal} + L_{action}
+\]
+
+实现上仍直接使用 ms-swift 的 causal LM loss:屏蔽 system / user 侧 token,对 assistant 输出中 `<state>`、`<subgoal>`、`<plan>` 的所有 token 统一计算交叉熵,不新增 loss head、分段权重或自定义 trainer。
+
+**实现契约**:`training/data.py` 中当前 assistant 侧的 `<plan> + <summary>` 序列化需统一为本节的 `<state> + <subgoal> + <plan>`;三组训练消融从同一份 canonical sample 按需选择区块,不各自生成一套标签。
 
 ---
 
-## 4. 数据方案:自建 VQA 为主
+## 4. 数据方案:自建 embodied reasoning 数据为主
 
 ### 4.1 为什么必须自建
 
 系统调研了 40+ 个候选数据集(完整结果见**附录 A**)。结论:
 
-**符合"单图 + 一句 prompt → 多步 plan"的严格匹配只有 4 个,没有一个能直接用于本实验:**
+**没有现成数据集同时提供"单图 + 一句 prompt → 可仿真验证的 state + subgoal + plan"。**即使放宽到只要求多步 plan,严格匹配也只有 4 个,且没有一个能直接用于本实验:
 
 | 数据集 | 规模 | 致命问题 |
 |---|---|---|
@@ -194,13 +248,32 @@ SpatialVLM 报告:定量距离估计**仅 37.2% 的答案落在 ground truth 的
 
 ### 4.2 生成管线
 
-用 AI2-THOR / ProcTHOR 直接生成 VQA 三元组:
+用 AI2-THOR / ProcTHOR 直接生成 embodied reasoning 五元组。标签生成链为:
 
-1. 在 ProcTHOR 场景中把相机置于**某个房间内**的某视角,渲染一张图
-2. **从该视角当前可见的物体集合中选取目标与容器** ← 关键步骤,保证信息充分
-3. 用 PDDL planner / 规则从当前状态生成高层动作序列
-4. **在仿真器中执行一遍验证成功**,失败样本丢弃
-5. 输出 (图, prompt, plan) 三元组
+```text
+AI2-THOR / ProcTHOR
+        ↓
+Environment state
+        ↓
+Task-relevant spatial facts
+        ↓
+High-level planner
+        ↓
+Subgoals
+        ↓
+Execution trajectory
+        ↓
+Primitive actions
+```
+
+具体流程:
+
+1. 在 ProcTHOR 场景中把相机置于**某个房间内**的某视角,渲染一张图。
+2. **从该视角当前可见的物体集合中选取目标与容器** ← 关键步骤,保证信息充分。
+3. 从仿真器 environment state 确定性导出与当前指令相关的空间关系、容器开关、物体所在位置等 `<state>` 事实。
+4. 用 high-level planner 生成与低层 API 解耦的 `<subgoal>` 任务分解,再由 PDDL planner / 规则编译为候选 primitive action sequence。
+5. **在仿真器中执行并验证成功**,从成功 execution trajectory 记录最终 `<plan>`;失败样本丢弃。
+6. 输出 `(图, prompt, state, subgoal, action)` canonical sample,其中 action 字段在模型输出中序列化为 `<plan>`。
 
 **场景域约束(v4 拍板)**:限定为**单房间可见范围**。生成时必须满足:
 
@@ -212,7 +285,7 @@ SpatialVLM 报告:定量距离估计**仅 37.2% 的答案落在 ground truth 的
 
 **得到的性质**:
 
-- 天然 VQA 格式,单图单 prompt,无轨迹残留
+- 天然单图单 prompt 格式,轨迹只用于导出与验证监督信号,不作为模型输入
 - **样本独立** — 每张图是独立场景配置 + 独立视角
 - **信息充分** — 目标可见,视觉必须参与
 - **标签可验证正确** — 不只是精确,而是仿真器跑通过的
@@ -222,13 +295,13 @@ SpatialVLM 报告:定量距离估计**仅 37.2% 的答案落在 ground truth 的
 
 **这是现成数据集给不了、而可控生成独有的能力,也是本实验成败的关键。**
 
-同一句 prompt,两张图,场景配置不同导致正确 plan 不同:
+同一句 prompt,两张或多张图,场景配置不同导致正确 state 与 plan 不同。例如对指令"把水瓶放进冰箱":
 
-| 场景配置 | 正确 plan |
-|---|---|
-| 冰箱**开着**,水在里面 | `GotoLocation(Fridge)` `PickupObject(WaterBottle)` |
-| 冰箱**关着**,水在里面 | `GotoLocation(Fridge)` `OpenObject(Fridge)` `PickupObject(WaterBottle)` `CloseObject(Fridge)` |
-| 水**在桌上** | `GotoLocation(Table)` `PickupObject(WaterBottle)` |
+| 场景配置 | 关键 `<state>` | 正确 `<plan>` |
+|---|---|---|
+| 水瓶在桌上,冰箱**开着** | `WaterBottle is on Table.` `Fridge is open.` | `GotoLocation(Table)` `PickupObject(WaterBottle)` `GotoLocation(Fridge)` `PutObject(WaterBottle,Fridge)` |
+| 水瓶在桌上,冰箱**关着** | `WaterBottle is on Table.` `Fridge is closed.` | `GotoLocation(Table)` `PickupObject(WaterBottle)` `GotoLocation(Fridge)` `OpenObject(Fridge)` `PutObject(WaterBottle,Fridge)` `CloseObject(Fridge)` |
+| 水瓶在台面上,冰箱**开着** | `WaterBottle is on CounterTop.` `Fridge is open.` | `GotoLocation(CounterTop)` `PickupObject(WaterBottle)` `GotoLocation(Fridge)` `PutObject(WaterBottle,Fridge)` |
 
 **模型不看图就必然答错一部分。这等于在数据层面消除语言先验捷径**,而不是靠事后用 format-only 对照组去扣。
 
@@ -239,29 +312,40 @@ SpatialVLM 报告:定量距离估计**仅 37.2% 的答案落在 ground truth 的
 ```json
 {
   "image": "scene_00123_view_02.png",
-  "prompt": "从冰箱拿一瓶水",
-  "plan_actions": ["GotoLocation(Fridge)", "OpenObject(Fridge)",
-                   "PickupObject(WaterBottle)", "CloseObject(Fridge)"],
-  "plan_nl": "走到冰箱前,拉开冰箱门,拿出一瓶水,然后关上冰箱门。",
+  "prompt": "把桌上的水瓶放进冰箱",
+  "state_facts": [
+    "WaterBottle is on Table.",
+    "Fridge is closed.",
+    "Fridge is the destination."
+  ],
+  "subgoals": [
+    "Acquire the water bottle.",
+    "Move the water bottle to the fridge.",
+    "Make the fridge accessible.",
+    "Place the water bottle."
+  ],
+  "plan_actions": ["GotoLocation(Table)", "PickupObject(WaterBottle)",
+                   "GotoLocation(Fridge)", "OpenObject(Fridge)",
+                   "PutObject(WaterBottle,Fridge)", "CloseObject(Fridge)"],
   "_meta": {
     "scene_id": "procthor_00123",
     "counterfactual_group": "cf_0451",
     "target_visible": true,
     "receptacle_state": "closed",
-    "spatial_relations": [["Fridge","right_of","Person"], ["WaterBottle","in","Fridge"]],
-    "plan_length": 4,
+    "spatial_relations": [["Fridge","right_of","Agent"], ["WaterBottle","on","Table"]],
+    "plan_length": 6,
     "sim_verified": true
   }
 }
 ```
 
-`_meta` 不进训练损失,只用于**评测归因与切片分析**。
+`state_facts`、`subgoals`、`plan_actions` 都是 assistant 侧监督标签;`_meta` 不进训练损失,只用于**数据验证、评测归因与切片分析**。三组实验必须从这份统一 schema 派生,保证它们只在 supervision 上不同。
 
 ### 4.5 规模与配比
 
 | 组成 | 占比建议 | 说明 |
 |---|---|---|
-| 自建 planning VQA(含反事实对) | 主体 | §4.2–4.3 |
+| 自建 embodied reasoning 数据(含反事实对) | 主体 | §4.2–4.3;同时提供 state / subgoal / action 三层标签 |
 | **空间关系辅助任务** | 混入 | EmbSpatial 方法:用相机参数 + 3D 坐标直接导出 above/below/left/right/close/far,**不依赖检测器**。先例:EmbSpatial-SFT **仅 25,000 条**就让 MiniGPT-v2 提升 **34.25 个百分点** |
 | **通用多模态指令数据** | 按比例混入 | 防灾难性遗忘。EgoPlan-IT 先例:5 万 in-domain + 5 万辅助 + **164K 通用**。纯 in-domain 10 万条会遗忘 |
 
@@ -275,12 +359,18 @@ SpatialVLM 报告:定量距离估计**仅 37.2% 的答案落在 ground truth 的
 | **RREP** | 4,245 / 43,898 | AI2-THOR 单图 + `executable_plan`,可作少量补充 | 规模小,许可未声明 |
 | **EmbSpatial-SFT** | 25,000 | 空间关系辅助任务,已验证有效 | 无 plan 输出 |
 
-### 4.7 中间标注用于归因
+### 4.7 中间监督标签的质量约束
 
-任务实为两段能力串联:**视觉定位与空间关系提取 → 动作序列生成**。
-`_meta.spatial_relations` 即使不计入损失,也用于评测归因。否则 FT 后只知道"涨了 8 分",不知道涨在哪一段。
+任务现在是三段能力串联:**视觉定位与空间关系提取 → 高层任务分解 → 原子动作生成**。因此中间标签不再只是归因用 metadata,而是进入 causal LM loss 的正式监督信号。
 
-EmbodiedBench 的失败归因分类可直接借用:**感知错误 / 推理错误 / 规划错误**。
+生成时必须满足:
+
+- **State groundedness**:每条 `state_facts` 都可从当帧可见物体、仿真器属性或准确 3D 关系确定性导出;只保留解决当前指令所需的事实。
+- **Subgoal abstraction**:`subgoals` 表达高层意图与阶段边界,不应只把 action API 逐行翻译成自然语言;同时必须足以解释后续 plan。
+- **Action executability**:`plan_actions` 必须处于封闭动作词表内,并由仿真器完整执行成功。
+- **Cross-layer consistency**:`state_facts → subgoals → plan_actions` 必须逻辑一致;反事实组内的差异必须能追溯到一个明确环境状态变化。
+
+`_meta.spatial_relations`、原始 scene graph 与 execution trace 仍不计入损失,用于自动校验和切片归因。EmbodiedBench 的失败分类可继续借用:**感知错误 / 推理错误 / 规划错误**。
 
 ---
 
@@ -310,23 +400,43 @@ EmbodiedBench 的失败归因分类可直接借用:**感知错误 / 推理错误
 
 ### 5.3 打分方式
 
-- **动作序列**:精确匹配(词表封闭 → 可行)。同时报 **step-level match** 与 **sequence-level exact match**
-- **自然语言**:SBERT 余弦相似度(ERQA-Plus 用法)或 LLM judge
-- **LLM judge 可信度参考**:Vlaser 用 Qwen2.5VL-32B 做 judge,与人工一致率约 80%
-- **建议加报**:结构合法率(输出能否被解析为合法动作序列)、词表越界率
+- **动作序列(主指标)**:保持原 benchmark 定义,同时报 **sequence-level exact match (Action EM)** 与 **step-level match**。三组训练实验的主结论只根据 `<plan>` 评测,确保与 action-only baseline 直接可比。
+- **State(诊断指标)**:对归一化后的任务相关事实报 precision / recall / F1,并单独统计物体属性与空间关系。
+- **Subgoal(诊断指标)**:报归一化后的 subgoal step match 与顺序一致率,用于区分感知改善和规划改善,不取代 action 主指标。
+- **格式与可执行性**:加报三个区块的结构合法率、动作/物体词表越界率,以及对预测 `<plan>` 的仿真器执行成功率(若评测环境支持)。
 
 ---
 
-## 6. 实验矩阵
+## 6. 研究假设与实验设计
 
-| # | 实验 | 目的 | 规模 | 前置 |
+### 6.1 研究假设
+
+#### H1:intermediate embodied reasoning 是当前主要瓶颈
+
+模型当前的主要瓶颈不是已知子目标后的 action generation,而是从图像恢复任务相关状态并形成高层规划的中间链路。
+
+依据是已完成的 Exp 0 零样本诊断:子目标 oracle 条件 D 的 Action EM 为 **83.77%**,而 image condition A 仅 **0.88%**、三种结构化场景描述 B 仅 **0.88%–2.19%**、image + spatial facts 条件 C 仅 **1.75%**。这表明模型在给定高层任务结构后能生成动作,但无法稳定自行完成感知到规划的映射。
+
+#### H2:subgoal supervision 提升多步规划
+
+在图像、指令、数据分布和训练配置相同时,增加 `<subgoal>` 监督应当比 action-only SFT 获得更高的 Action EM 与 step-level match,改善应在长 plan 和 counterfactual 子集上更明显。
+
+#### H3:spatial state supervision 进一步提升视觉空间推理
+
+在 subgoal supervision 之上增加 simulator-grounded `<state>` 监督,应当进一步提升视觉条件下的 Action EM、step-level match 与 counterfactual 一致性,并在 state fact F1 上体现直接改善。
+
+### 6.2 总体实验矩阵
+
+| # | 实验 | assistant 输出 | 目的 | 状态/规模 |
 |---|---|---|---|---|
-| **Exp 0** | **诊断检测:定位链路瓶颈** | 决定 LoRA 是否需覆盖 vision tower | 5 条件 × 200–300 条,**推理时消融不训练** | 无 |
-| **Exp 1** | **Pilot:图像来源与分辨率** | 场景域已拍板,仅选图像来源与渲染分辨率 | 见 §6.2 | Exp 0 |
-| **Exp 2** | **主实验:10 万条 LoRA** | 产出主结果 | 10 万条 | Exp 1 |
-| **Exp 3** | **format-only 对照** | 扣除"仅学会格式"的虚假涨幅 | 同 Exp 2 | 与 Exp 2 并行 |
+| **Exp 0** | **瓶颈诊断** | oracle 推理时条件 | 建立 H1,定位感知/规划/动作生成瓶颈 | **已完成**:5 个语义条件,228 条;其中 B 含 3 种序列化 |
+| **Shared Pilot** | **图像来源与分辨率** | 固定 action-only | 为三组主实验选定共享图像配置,不参与 supervision 结论 | 每组 2k 条短 LoRA |
+| **Exp 1** | **Action-only SFT** | `<plan>` | baseline:`image + instruction → action` | 约 10 万条 |
+| **Exp 2** | **Subgoal supervision** | `<subgoal> → <plan>` | 验证 H2:planning supervision 是否有效 | 与 Exp 1 同样本 |
+| **Exp 3** | **Full embodied CoT** | `<state> → <subgoal> → <plan>` | 验证 H3:视觉 grounding + planning 联合监督 | 与 Exp 1 同样本 |
+| **Aux** | **format-only 对照** | 与对应实验同格式、错误标签 | 量出仅学会输出格式的涨幅 | 资源允许时运行,不占 Exp 1–3 编号 |
 
-### 6.1 Exp 0 — 诊断检测(建议最先做)
+### 6.3 Exp 0 — 诊断检测(零样本阶段已完成)
 
 **性质:推理时消融检测,不训练。** 所有 oracle 信息仅用于诊断,不进入最终 pipeline。
 
@@ -370,14 +480,15 @@ B 高于 A,可能只是因为场景图写法恰好对模型口味,不代表感�
 
 #### 执行与升级路径
 
-1. **先零样本跑**:五条件各 200–300 条,几分钟完成
-2. **若 A / B / C 全部贴随机线**(0.8B 很可能如此,见 §7 风险 1),零样本消融失效 → **升级**:各条件跑一次 ~300 step 短 LoRA 后重测
+1. **零样本诊断已完成**:228 条样本;D / A′ / A / C 各一种输入,B 按自然语言 / JSON / 三元组三种序列化分别运行。
+2. **结果**:D 的 Action EM 为 83.77%,A 为 0.88%,A′ 为 0.00%,B 为 0.88%–2.19%,C 为 1.75%。D 通过下限检查,但 A / B / C 全部贴地板。
+3. **下一步升级**:各条件跑一次约 300 step 短 LoRA 后重测,用于检查条件间的可学性差异。
 
-第 2 步是必要的兜底——base 模型在所有条件下都不会做,不代表这些条件之间没有可学性差异。
+第 3 步是必要的兜底——base 模型在所有条件下都不会做,不代表这些条件之间没有可学性差异。零样本结果是 H1 的当前依据,但短 LoRA 重测不替代 Exp 1–3 的主消融。
 
-成本仍然很低,但决定 Exp 1 / Exp 2 的整个配置。
+这一诊断链后续只决定 LoRA 是否覆盖 vision tower,不改变 Exp 1–3 的 supervision 定义。
 
-### 6.2 Exp 1 — Pilot(场景域已拍板,不再选域)
+### 6.4 Shared Pilot — 图像来源与分辨率(不再选域)
 
 > **v4:场景域直接定为 B(单房间可见范围),取消域选型。** 理由见 §4.2 的场景域约束——目标不可见会引入不可约标签噪声,全屋长程与 tabletop 均不满足本实验的输入设定。Pilot 只保留下面两个变量。
 
@@ -393,15 +504,76 @@ B 高于 A,可能只是因为场景图写法恰好对模型口味,不代表感�
 
 Qwen3.5 的 ViT 是 patch 16 + spatial_merge 2,低分辨率下剩余视觉 token 很少(ALFRED 默认仅 300×300,明显不够)。建议至少测 **300 / 512 / 768** 三档,确认空间细节是否够支撑定性关系判断。见 §7 风险 4。
 
-**流程**:每组 2k 条(严格 held-out 200 条 + counterfactual 100 条)→ 各跑 ~500 step 短 LoRA → 测三轨(§5.1)→ **看斜率而非绝对分**,取斜率最大且 OOD 与 counterfactual 都不塌的组合。单卡约 30 分钟/次。
+**流程**:为避免和主消融交互,所有 Pilot 统一使用 Exp 1 action-only 输出。每组 2k 条(严格 held-out 200 条 + counterfactual 100 条)→ 各跑 ~500 step 短 LoRA → 测三轨(§5.1)→ **看斜率而非绝对分**,取斜率最大且 OOD 与 counterfactual 都不塌的组合。单卡约 30 分钟/次。
 
 **注意**:两个变量应先各自单独扫,确认无强交互后再定组合;不要一上来跑全笛卡尔积。
 
-### 6.3 Exp 3 — format-only 对照组(不可省)
+### 6.5 Exp 1–3 的共享控制条件
 
-用**相同格式但标签打乱/错误**的数据微调一版,量出"仅学会输出格式"能带来多少涨幅,从总涨幅中扣除。
+- 使用同一批 canonical samples、同一 scene/counterfactual-group 切分、同一训练 seed 与同一评测集。
+- 保持 Qwen3.5-0.8B、LoRA target / rank、optimizer、learning rate、batch size、训练 step 和图像配置不变;唯一主变量是 assistant 侧 supervision block。
+- 三组的 `<plan>` gold 完全一致,action vocabulary 与 Action EM / step-level match 解析器完全一致。
+- 因 Exp 2 / Exp 3 的 assistant 序列更长,除了固定样本数与 step,还要报告实际 supervised token 数和训练时间,防止把额外 token 预算当成 supervision 结构的收益。
 
-注:反事实配对(§4.3)已在数据层面消除大部分语言先验捷径,但 format-only 对照仍需保留——它抓的是**输出格式适配**带来的涨幅,与语言先验是两回事。
+### 6.6 Exp 1 — Action-only SFT
+
+Baseline:
+
+```text
+image + instruction
+        ↓
+<plan>
+primitive action sequence
+</plan>
+```
+
+本组不输出 `<state>` 或 `<subgoal>`,用于复现旧的直接 action supervision,是 Exp 2 和 Exp 3 的统一 baseline。
+
+### 6.7 Exp 2 — Subgoal Supervision
+
+```text
+image + instruction
+        ↓
+<subgoal>
+high-level task decomposition
+</subgoal>
+        ↓
+<plan>
+primitive action sequence
+</plan>
+```
+
+本组只增加 planning supervision,不输出 `<state>`。`Exp 2 − Exp 1` 主要检验 H2。
+
+### 6.8 Exp 3 — Full Embodied CoT
+
+```text
+image + instruction
+        ↓
+<state>
+task-relevant spatial facts
+</state>
+        ↓
+<subgoal>
+high-level task decomposition
+</subgoal>
+        ↓
+<plan>
+primitive action sequence
+</plan>
+```
+
+本组联合监督视觉 grounding、高层规划与动作执行。`Exp 3 − Exp 2` 主要检验 H3;`Exp 3 − Exp 1` 衡量完整 embodied CoT 的总体收益。
+
+### 6.9 主实验判读
+
+- H2 的主检验是 Exp 2 相对 Exp 1 的 Action EM / step-level match 改变,并分别报 in-domain、counterfactual、OOD 和 plan-length 切片。
+- H3 的主检验是 Exp 3 相对 Exp 2 的动作指标改变;state fact F1 和 subgoal 指标只用于解释改变来自哪一层。
+- 对同一 held-out sample 做配对统计,报告 bootstrap 置信区间;不只比较单一 seed 的点估计。
+
+### 6.10 format-only 辅助对照
+
+该对照不再占用 Exp 3 编号。在资源允许时,对相应实验使用**相同 block 格式但在训练 split 内打乱 state / subgoal / action 标签**的数据微调,量出"仅学会输出格式"可能带来的涨幅。反事实配对(§4.3)用于消除语言先验捷径,format-only 对照用于量化输出格式适配,两者职责不同。
 
 ---
 
@@ -414,7 +586,7 @@ Qwen3.5 的 ViT 是 patch 16 + spatial_merge 2,低分辨率下剩余视觉 token
 | 3 | **模型靠语言先验走捷径** | ALFRED 分析(§4.1 第 3 条) | **反事实配对(§4.3)** + format-only 对照 |
 | 4 | **渲染分辨率不足** | Qwen3.5 ViT 为 patch 16 + spatial_merge 2;ALFRED 默认仅 300×300 | 提高渲染分辨率;在 Pilot 中作为变量测 |
 | 5 | **灾难性遗忘** | EgoPlan-IT 配方中通用数据占比很高 | 按比例混入通用多模态指令数据 |
-| 6 | **0.8B 输出合法结构不稳定** | 未验证 | 词表严格封闭;先小样本验证结构合法率再放量;评测加报结构合法率 |
+| 6 | **0.8B 三区块输出合法性不稳定** | Exp 0 已验证 `<plan>` 格式,但 `<state> + <subgoal> + <plan>` 尚未验证 | 词表严格封闭;先小样本验证三区块结构合法率再放量;评测加报分区块合法率 |
 | 7 | **LoRA 只命中 6/24 层** | config.json 层排布 | `all-linear` + 日志核对命中层数 |
 | 8 | **logits 显存爆炸** | vocab 248,320 | liger 融合 CE |
 | 9 | **仿真渲染 sim-to-real gap** | Vlaser 域内/域外结论 | 材质光照随机化;OOD 轨用真实图像 benchmark 检验 |
@@ -438,9 +610,10 @@ Qwen3.5 的 ViT 是 patch 16 + spatial_merge 2,低分辨率下剩余视觉 token
 1. **渲染分辨率** — 在 Pilot 中作为变量,建议扫 300 / 512 / 768
 2. **反事实对占比** — 建议 ≥30%
 3. **通用数据混入比例** — EgoPlan-IT 是 5万 : 5万 : 164K,可作起点
-4. **是否显式保留 `OpenObject` / `CloseObject`** — 影响序列长度与反事实设计(建议保留,反事实对依赖它)
+4. ~~**是否显式保留 `OpenObject` / `CloseObject`**~~ — **已拍板:保留**,action vocabulary 沿用 §1.2;反事实对依赖显式开关门动作。
 5. **LoRA rank** — ms-swift 示例是 8;若想减少混淆变量可改用全参微调,0.8B 只需约 12GB
 6. **A′ 错误图像的构造方式** — 当前 exp0 代码用"不相关图像";另一方案是复用反事实对(同 prompt、配对图、参考答案仍用原图 plan),更严格但需先有反事实数据。**未决,影响已写好的 exp0 代码**
+7. **State / subgoal 标签语言与归一化规则** — 本文示例用英文,当前 Exp 0 中间字段主要为中文;正式生成 10 万条数据前必须固定一种序列化与评测 normalization。
 
 ---
 

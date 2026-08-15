@@ -1,0 +1,11 @@
+{
+  "extends": "config.server.json",
+  "model": {
+    "output_dir": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-action-full"
+  },
+  "data": {
+    "source_dataset": "../exp0/data/samples.jsonl",
+    "prepared_dir": "prepared/action-full",
+    "response_format": "action"
+  }
+}

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .common import TrainingConfigError, require_mapping, resolve_path
+from .cot_data import uses_embodied_format, validate_cot_prepared_dataset
 from .data import validate_prepared_dataset
 
 
@@ -58,6 +59,11 @@ def build_swift_command(config: dict[str, Any], base_dir: Path) -> list[str]:
     server = require_mapping(config.get("server"), "server")
     model = require_mapping(config.get("model"), "model")
     training = require_mapping(config.get("training"), "training")
+    weighted_sections = training.get("section_loss_weights") is not None
+    if weighted_sections and training.get("use_liger_kernel", True):
+        raise TrainingConfigError(
+            "Non-binary section_loss_weights require training.use_liger_kernel=false"
+        )
     tuner_type = str(training.get("tuner_type", "full"))
     if tuner_type not in {"full", "lora"}:
         raise TrainingConfigError("training.tuner_type must be 'full' or 'lora'")
@@ -80,6 +86,8 @@ def build_swift_command(config: dict[str, Any], base_dir: Path) -> list[str]:
     _option(command, "load_from_cache_file", _bool_text(training.get("load_from_cache_file", True)))
     _option(command, "add_non_thinking_prefix", _bool_text(training.get("add_non_thinking_prefix", True)))
     _option(command, "loss_scale", training.get("loss_scale", "ignore_empty_think"))
+    if weighted_sections:
+        _option(command, "is_binary_loss_scale", "false")
     _option(command, "torch_dtype", training.get("torch_dtype", "bfloat16"))
     _option(command, "max_steps", int(training.get("max_steps", 300)))
     _option(command, "per_device_train_batch_size", int(training.get("per_device_train_batch_size", 4)))
@@ -139,6 +147,9 @@ def format_command(command: list[str], environment: dict[str, str]) -> str:
 
 
 def run_training(config: dict[str, Any], base_dir: Path) -> None:
-    validate_prepared_dataset(config, base_dir)
+    if uses_embodied_format(config):
+        validate_cot_prepared_dataset(config, base_dir)
+    else:
+        validate_prepared_dataset(config, base_dir)
     command = build_swift_command(config, base_dir)
     subprocess.run(command, env=build_environment(config), check=True)

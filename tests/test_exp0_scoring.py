@@ -86,6 +86,15 @@ class PromptContractTests(unittest.TestCase):
 
 
 class LenientParsingTests(unittest.TestCase):
+    def test_action_block_wins_over_high_level_cot_plan(self) -> None:
+        text = (
+            "<state>Fridge is closed.</state>\n"
+            "<plan>\n1. Acquire Apple.\n</plan>\n"
+            "<action>\nGotoLocation(Fridge)\nOpenObject(Fridge)\n</action>"
+        )
+        self.assertEqual(parse_plan_lenient(text, ACTIONS), GOLD)
+        self.assertEqual(parse_plan(text).actions, GOLD)
+
     def test_missing_parentheses_are_recovered(self) -> None:
         """99.3% of the first run's plan lines were written without parentheses."""
         text = "<plan>\nGotoLocation Fridge\nOpenObject Fridge\n</plan>"

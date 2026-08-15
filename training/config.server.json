@@ -15,6 +15,7 @@
   "data": {
     "source_dataset": "../exp0/data/samples.jsonl",
     "prepared_dir": "prepared",
+    "supervision_mode": "baseline",
     "validation_ratio": 0.1,
     "split_group_fields": [
       "scene_id",

@@ -10,6 +10,9 @@ from typing import Any
 
 ACTION_PATTERN = re.compile(r"^\s*([A-Za-z][A-Za-z0-9_]*)\s*\((.*)\)\s*$")
 PLAN_BLOCK_PATTERN = re.compile(r"<plan>\s*(.*?)\s*</plan>", re.IGNORECASE | re.DOTALL)
+ACTION_BLOCK_PATTERN = re.compile(
+    r"<action>\s*(.*?)\s*(?:</action>|$)", re.IGNORECASE | re.DOTALL
+)
 SUMMARY_BLOCK_PATTERN = re.compile(
     r"<summary>\s*(.*?)\s*(?:</summary>|$)", re.IGNORECASE | re.DOTALL
 )
@@ -24,9 +27,8 @@ SPACE_ACTION_PATTERN = re.compile(
 LEADING_MARKER_PATTERN = re.compile(r"^(?:[-*+•]|\d+\s*[.、)])\s*")
 
 # Chinese surface forms accepted for each action when scoring the <summary> text.
-# Note ToggleObject and OpenObject genuinely overlap on 打开/开启 in Chinese; the
-# ordered matcher below resolves most cases by position, and `nl_order_ok` will
-# expose the rest.
+# Opening a container and powering a device use disjoint verbs so the language
+# schema matches the deterministic action schema used by data generation.
 ACTION_NL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "GotoLocation": ("前往", "走到", "走向", "来到", "去到", "移动到", "到达", "靠近", "走过去"),
     "PickupObject": ("拿起", "拿出", "取出", "拿走", "捡起", "抓起", "取下", "拿到"),
@@ -34,8 +36,8 @@ ACTION_NL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "SliceObject": ("切开", "切成", "切片", "切下", "切"),
     "CleanObject": ("清洁", "清洗", "洗干净", "洗净", "冲洗", "擦干净", "擦", "洗"),
     "HeatObject": ("加热", "热一下", "微波", "加温", "热"),
-    "ToggleObject": ("切换", "开关", "打开", "开启", "点亮", "关掉", "按下"),
-    "OpenObject": ("打开", "拉开", "开启", "掀开", "开"),
+    "ToggleObject": ("切换", "开关", "开启", "点亮", "关掉", "按下"),
+    "OpenObject": ("打开", "拉开", "掀开"),
     "CloseObject": ("关闭", "关上", "合上", "关好", "盖上", "关"),
 }
 
@@ -110,7 +112,10 @@ def parse_action(action: str) -> tuple[str, list[str]] | None:
 
 
 def parse_plan(text: str) -> ParsedPlan:
-    block_match = PLAN_BLOCK_PATTERN.search(text)
+    # Embodied-CoT responses contain a high-level <plan> plus the benchmark's
+    # primitive sequence in <action>. Prefer the latter while retaining the old
+    # <plan>-as-actions contract for existing predictions.
+    block_match = ACTION_BLOCK_PATTERN.search(text) or PLAN_BLOCK_PATTERN.search(text)
     has_tags = block_match is not None
     block = block_match.group(1) if block_match else text
     candidate_lines = [line.strip() for line in block.splitlines() if line.strip()]
@@ -140,7 +145,7 @@ def parse_plan(text: str) -> ParsedPlan:
 
 def parse_plan_lenient(text: str, allowed_actions: list[str] | set[str]) -> list[str]:
     """Best-effort action list. Vocabulary-anchored, so it cannot invent actions."""
-    block_match = PLAN_BLOCK_PATTERN.search(text)
+    block_match = ACTION_BLOCK_PATTERN.search(text) or PLAN_BLOCK_PATTERN.search(text)
     block = block_match.group(1) if block_match else text
     canonical = {name.casefold(): name for name in allowed_actions}
 
@@ -180,6 +185,10 @@ def extract_summary(text: str) -> str:
     summary_match = SUMMARY_BLOCK_PATTERN.search(text)
     if summary_match is not None:
         candidate = summary_match.group(1)
+    elif ACTION_BLOCK_PATTERN.search(text) is not None:
+        # The new evaluation contract is action-only. Do not accidentally score
+        # primitive actions as a natural-language summary.
+        return ""
     else:
         plan_match = PLAN_BLOCK_PATTERN.search(text)
         candidate = text[plan_match.end() :] if plan_match else text
@@ -379,4 +388,3 @@ def validate_samples(
                     f"{sample_id}: meta.plan_length must equal len(gold.plan_actions)"
                 )
     return errors
-

@@ -9,9 +9,29 @@ from .inference import run_inference
 from .schema import read_json, read_jsonl, validate_samples
 
 
+def _merge_config(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    result = dict(base)
+    for key, value in override.items():
+        if key == "extends":
+            continue
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _merge_config(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 def _load_config(config_path: Path) -> tuple[dict[str, Any], Path, Path]:
     config_path = config_path.resolve()
     config = read_json(config_path)
+    parent = config.get("extends")
+    if parent is not None:
+        if not isinstance(parent, str) or not parent.strip():
+            raise ValueError("config.extends must be a non-empty path")
+        parent_path = Path(parent).expanduser()
+        if not parent_path.is_absolute():
+            parent_path = config_path.parent / parent_path
+        config = _merge_config(read_json(parent_path.resolve()), config)
     base_dir = config_path.parent
     dataset_path = (base_dir / config["dataset_path"]).resolve()
     output_dir = (base_dir / config["output_dir"]).resolve()
@@ -92,4 +112,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

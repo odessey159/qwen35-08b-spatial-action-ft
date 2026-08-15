@@ -99,6 +99,7 @@ def run_inference(
                 format_demo_as_turns=bool(
                     config["model"].get("format_demo_as_turns", False)
                 ),
+                response_format=str(config["model"].get("response_format", "legacy")),
             )
             started = time.perf_counter()
             raw_output = _generate_one(
@@ -123,4 +124,3 @@ def run_inference(
                     "elapsed_seconds": round(elapsed, 4),
                 },
             )
-

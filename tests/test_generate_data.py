@@ -20,6 +20,10 @@ from exp0.generate_data import (  # noqa: E402
     signature_from_row,
     split_count,
 )
+from exp0.data_quality import (  # noqa: E402
+    generation_quality_summary,
+    instruction_plan_collisions,
+)
 
 
 def _config(output_dir: str = "out") -> dict:
@@ -172,6 +176,24 @@ class GenerateDataPersistenceTests(unittest.TestCase):
             report = json.loads(generator.report_path.read_text(encoding="utf-8"))
             self.assertFalse(report["complete"])
             self.assertEqual(report["sample_count"], 1)
+
+    def test_complete_finalize_rejects_same_image_instruction_with_multiple_plans(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = Path(raw_root)
+            generator = _generator(root)
+            first = _row(1, "scene_a")
+            second = _row(2, "scene_b")
+            second["gold"]["plan_actions"] = [
+                "GotoLocation(Apple)",
+                "SliceObject(Apple)",
+            ]
+            _commit(generator, first)
+            _commit(generator, second)
+
+            with self.assertRaisesRegex(RuntimeError, "multiple gold plans"):
+                generator.finalize(complete=True)
 
     def test_resume_restores_counts_signatures_and_skips_overwrite_requirement(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
@@ -341,6 +363,69 @@ class ViewSelectionTests(unittest.TestCase):
             self.assertIsNone(pickups[0].setup)
             self.assertIsNotNone(cleans[0].setup)
 
+    def test_atomic_candidate_navigates_to_visible_parent_and_annotates_it(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            generator = _generator(Path(raw_root))
+            parent = _visible_object("DiningTable|1", "DiningTable", receptacle=True)
+            target = _visible_object(
+                "Plate|1",
+                "Plate",
+                dirtyable=True,
+                isDirty=True,
+                parentReceptacles=[parent["objectId"]],
+            )
+            candidate = generator.list_atomic_candidates(
+                _FakeEvent([target, parent]), "clean"
+            )[0]
+            self.assertEqual(
+                candidate.plan_actions,
+                ("GotoLocation(DiningTable)", "CleanObject(Plate)"),
+            )
+            self.assertEqual(candidate.relevant_ids, ("Plate|1", "DiningTable|1"))
+
+    def test_atomic_candidate_falls_back_to_target_without_visible_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            generator = _generator(Path(raw_root))
+            target = _visible_object(
+                "Fridge|1", "Fridge", openable=True, isOpen=False
+            )
+            candidate = generator.list_atomic_candidates(
+                _FakeEvent([target]), "open_close"
+            )[0]
+            self.assertEqual(
+                candidate.plan_actions,
+                ("GotoLocation(Fridge)", "OpenObject(Fridge)"),
+            )
+            self.assertEqual(candidate.relevant_ids, ("Fridge|1",))
+
+    def test_open_and_toggle_candidates_are_disjoint_and_use_distinct_verbs(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            generator = _generator(Path(raw_root))
+            event = _FakeEvent(
+                [
+                    _visible_object(
+                        "Laptop|1",
+                        "Laptop",
+                        toggleable=True,
+                        openable=True,
+                        isToggled=False,
+                        isOpen=False,
+                    ),
+                    _visible_object(
+                        "CellPhone|1", "CellPhone", toggleable=True, isToggled=False
+                    ),
+                    _visible_object(
+                        "Cabinet|1", "Cabinet", openable=True, isOpen=False
+                    ),
+                ]
+            )
+            toggles = generator.list_atomic_candidates(event, "toggle")
+            open_close = generator.list_atomic_candidates(event, "open_close")
+            self.assertEqual([item.target_id for item in toggles], ["CellPhone|1"])
+            self.assertEqual(toggles[0].instruction, "开启 CellPhone。")
+            self.assertEqual([item.target_id for item in open_close], ["Cabinet|1"])
+            self.assertEqual(open_close[0].instruction, "打开 Cabinet。")
+
     def test_enumerate_skips_filled_groups_and_impossible_heat_views(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             config = _config()
@@ -431,6 +516,36 @@ class ViewSelectionTests(unittest.TestCase):
             self.assertTrue(any(option.kind == "open_pair" for option in options))
             blocked = generator.enumerate_view_options(_context(), event, allow_pairs=False)
             self.assertFalse(any(option.kind in {"put_pair", "open_pair"} for option in blocked))
+
+
+class DataQualityTests(unittest.TestCase):
+    def test_collision_key_includes_image_and_instruction(self) -> None:
+        first = _row(1)
+        second = copy.deepcopy(first)
+        second["gold"]["plan_actions"] = ["GotoLocation(Apple)", "SliceObject(Apple)"]
+        self.assertEqual(len(instruction_plan_collisions([first, second])), 1)
+
+        second["image"] = "images/exp0_0002.png"
+        self.assertEqual(instruction_plan_collisions([first, second]), {})
+
+        first["meta"]["image_sha256"] = "same-pixels"
+        second["meta"]["image_sha256"] = "same-pixels"
+        self.assertEqual(len(instruction_plan_collisions([first, second])), 1)
+
+    def test_generation_quality_summary_counts_actions_and_goto_schema(self) -> None:
+        parent_row = _row(1)
+        parent_row["gold"]["plan_actions"] = [
+            "GotoLocation(DiningTable)",
+            "PickupObject(Apple)",
+        ]
+        fallback_row = _row(2)
+        summary = generation_quality_summary([parent_row, fallback_row])
+        self.assertEqual(summary["instruction_collision"], 0)
+        self.assertEqual(summary["action_distribution"], {"PickupObject": 2})
+        self.assertEqual(
+            summary["goto_schema"],
+            {"parent_location": 1, "object_location": 1},
+        )
 
 
 if __name__ == "__main__":

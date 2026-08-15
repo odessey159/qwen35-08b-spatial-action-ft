@@ -28,6 +28,10 @@ _EXAMPLE_BLOCK = (
     + "\n</summary>"
 )
 
+_ACTION_EXAMPLE_BLOCK = (
+    "<action>\n" + "\n".join(FORMAT_EXAMPLE_PLAN) + "\n</action>"
+)
+
 
 @dataclass(frozen=True)
 class PromptCase:
@@ -90,7 +94,9 @@ def serialize_scene_graph(scene_graph: dict[str, Any], format_name: str) -> str:
     raise ValueError(f"Unsupported scene graph format: {format_name}")
 
 
-def system_prompt(allowed_actions: list[str], inline_example: bool) -> str:
+def system_prompt(
+    allowed_actions: list[str], inline_example: bool, response_format: str = "legacy"
+) -> str:
     """Format rules live here, not in the user turn.
 
     Everything the model is *told to do* is kept out of the user turn so that a
@@ -99,7 +105,32 @@ def system_prompt(allowed_actions: list[str], inline_example: bool) -> str:
     sentence "随后用一句自然语言描述相同步骤。" inside the user turn; 0.8B copied
     both back (61% and 91% of outputs respectively).
     """
+    if response_format not in {"legacy", "action"}:
+        raise ValueError("response_format must be 'legacy' or 'action'")
     action_text = "、".join(allowed_actions)
+    if response_format == "action":
+        lines = [
+            "你是一个室内家务动作规划助手。",
+            "",
+            "回答必须且只能由以下一段组成，不要写思考过程、解释或复述题目：",
+            "",
+            "<action>",
+            "（每行一个动作，写成 动作名(物体名) 的形式；多个参数用英文逗号分隔）",
+            "</action>",
+            "",
+            f"动作名只能从这 9 个里选：{action_text}。",
+            "物体名一律使用英文原名，例如 Fridge、Plate。",
+            "步骤数由任务本身决定，可以是一步，也可以是多步。",
+        ]
+        if inline_example:
+            lines += [
+                "",
+                "下面是一个格式示例。它与你要回答的任务无关，不要照抄：",
+                "",
+                _ACTION_EXAMPLE_BLOCK,
+            ]
+        return "\n".join(lines)
+
     lines = [
         "你是一个室内家务动作规划助手。",
         "",
@@ -128,7 +159,7 @@ def system_prompt(allowed_actions: list[str], inline_example: bool) -> str:
     return "\n".join(lines)
 
 
-def format_demo_turns() -> list[dict[str, Any]]:
+def format_demo_turns(response_format: str = "legacy") -> list[dict[str, Any]]:
     """One-shot format demo as a real user/assistant exchange.
 
     Enabled by `model.format_demo_as_turns` in the config. Small models follow a
@@ -136,12 +167,13 @@ def format_demo_turns() -> list[dict[str, Any]]:
     demo carries no scene, so it teaches layout only, and it is identical across
     all seven conditions -- it cannot shift the between-condition comparison.
     """
+    example = _ACTION_EXAMPLE_BLOCK if response_format == "action" else _EXAMPLE_BLOCK
     return [
         {
             "role": "user",
             "content": [{"type": "text", "text": "目标指令：清洗 WateringCan。（格式示例，与后面的题目无关）"}],
         },
-        {"role": "assistant", "content": [{"type": "text", "text": _EXAMPLE_BLOCK}]},
+        {"role": "assistant", "content": [{"type": "text", "text": example}]},
     ]
 
 
@@ -214,6 +246,7 @@ def build_messages(
     image_path: Path | None,
     allowed_actions: list[str],
     format_demo_as_turns: bool = False,
+    response_format: str = "legacy",
 ) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = [
         {
@@ -221,13 +254,17 @@ def build_messages(
             "content": [
                 {
                     "type": "text",
-                    "text": system_prompt(allowed_actions, inline_example=not format_demo_as_turns),
+                    "text": system_prompt(
+                        allowed_actions,
+                        inline_example=not format_demo_as_turns,
+                        response_format=response_format,
+                    ),
                 }
             ],
         }
     ]
     if format_demo_as_turns:
-        messages.extend(format_demo_turns())
+        messages.extend(format_demo_turns(response_format=response_format))
 
     content: list[dict[str, Any]] = []
     if image_path is not None:

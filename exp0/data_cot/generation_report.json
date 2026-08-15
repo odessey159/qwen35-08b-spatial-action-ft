@@ -1,0 +1,13 @@
+{
+  "source_dataset": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\exp0\\data\\samples.jsonl",
+  "source_sha256": "0d73cdcf5dcd39b4ac787e29b3a34d3a52408f41bf0aff5d84f634a4ce6b71d7",
+  "output_dataset": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\exp0\\data_cot\\samples_cot.jsonl",
+  "variant": "cot",
+  "sample_count": 240,
+  "max_state_facts": 12,
+  "all_simulator_verified": true,
+  "token_count_method": "deterministic_unicode_estimate",
+  "average_state_tokens": 25.25,
+  "average_plan_tokens": 6.213,
+  "average_action_tokens": 8.8
+}

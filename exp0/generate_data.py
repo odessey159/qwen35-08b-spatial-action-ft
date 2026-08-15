@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -13,6 +14,8 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator
+
+from .data_quality import generation_quality_summary, instruction_plan_collisions
 
 
 # Restricted to ALFRED-compatible classes used by the project. Objects that are
@@ -662,6 +665,7 @@ class ThorDataGenerator:
 
     def write_report(self, *, complete: bool) -> None:
         sample_count = self.committed_count
+        rows = list(iter_jsonl(self.samples_path)) if self.samples_path.exists() else []
         write_json_atomic(
             self.report_path,
             {
@@ -678,6 +682,7 @@ class ThorDataGenerator:
                 "complete": complete,
                 "resumed": self.resumed,
                 "expected_sample_count": self.target_sample_count(),
+                **generation_quality_summary(rows),
             },
         )
 
@@ -868,7 +873,9 @@ class ThorDataGenerator:
         sample_id = f"exp0_{self.next_sample_index:04d}"
         self.next_sample_index += 1
         image_name = f"{sample_id}{image_suffix}.png"
-        Image.fromarray(event.frame).save(self.images_dir / image_name)
+        image_path = self.images_dir / image_name
+        Image.fromarray(event.frame).save(image_path)
+        image_sha256 = hashlib.sha256(image_path.read_bytes()).hexdigest()
         scene_graph, facts, relation_rows = self.build_scene_annotations(
             event, candidate.relevant_ids
         )
@@ -895,6 +902,7 @@ class ThorDataGenerator:
                 "spatial_relations": relation_rows,
                 "plan_length": len(candidate.plan_actions),
                 "sim_verified": True,
+                "image_sha256": image_sha256,
                 "camera_pose": context.camera_pose,
                 "required_object_ids": list(candidate.relevant_ids),
             },
@@ -934,6 +942,7 @@ class ThorDataGenerator:
         self,
         group: str,
         target: dict[str, Any],
+        visible_by_id: dict[str, dict[str, Any]],
         simulator_action: str,
         instruction: str,
         high_level_action: str,
@@ -941,8 +950,11 @@ class ThorDataGenerator:
     ) -> TaskCandidate:
         target_type = object_type(target)
         object_id = str(target["objectId"])
+        parent = self.visible_parent(target, visible_by_id)
+        location_type = object_type(parent) if parent else target_type
+        parent_id = str(parent["objectId"]) if parent else None
         actions = (
-            canonical_action("GotoLocation", target_type),
+            canonical_action("GotoLocation", location_type),
             canonical_action(high_level_action, target_type),
         )
 
@@ -952,7 +964,7 @@ class ThorDataGenerator:
         return TaskCandidate(
             group=group,
             target_id=object_id,
-            relevant_ids=(object_id,),
+            relevant_ids=(object_id,) + ((parent_id,) if parent_id else ()),
             plan_actions=actions,
             instruction=instruction,
             subgoals=tuple(action_to_nl(action) + "。" for action in actions),
@@ -997,6 +1009,7 @@ class ThorDataGenerator:
 
     def list_atomic_candidates(self, event: Any, group: str) -> list[TaskCandidate]:
         visible = visible_objects(event)
+        by_id = {obj["objectId"]: obj for obj in visible}
         candidates: list[TaskCandidate] = []
         if group == "clean":
             for target in visible:
@@ -1011,6 +1024,7 @@ class ThorDataGenerator:
                     self._atomic_candidate(
                         group,
                         target,
+                        by_id,
                         "CleanObject",
                         f"清洁 {object_type(target)}。",
                         "CleanObject",
@@ -1024,6 +1038,7 @@ class ThorDataGenerator:
                         self._atomic_candidate(
                             group,
                             target,
+                            by_id,
                             "CookObject",
                             f"加热 {object_type(target)}。",
                             "HeatObject",
@@ -1036,6 +1051,7 @@ class ThorDataGenerator:
                         self._atomic_candidate(
                             group,
                             target,
+                            by_id,
                             "SliceObject",
                             f"切开 {object_type(target)}。",
                             "SliceObject",
@@ -1045,12 +1061,15 @@ class ThorDataGenerator:
             for target in visible:
                 if not target.get("toggleable"):
                     continue
+                if target.get("openable"):
+                    continue
                 simulator_action = "ToggleObjectOff" if target.get("isToggled") else "ToggleObjectOn"
-                desired = "关闭" if target.get("isToggled") else "打开"
+                desired = "关闭" if target.get("isToggled") else "开启"
                 candidates.append(
                     self._atomic_candidate(
                         group,
                         target,
+                        by_id,
                         simulator_action,
                         f"{desired} {object_type(target)}。",
                         "ToggleObject",
@@ -1060,6 +1079,8 @@ class ThorDataGenerator:
             for target in visible:
                 if not target.get("openable"):
                     continue
+                if target.get("toggleable"):
+                    continue
                 desired_open = not bool(target.get("isOpen"))
                 simulator_action = "OpenObject" if desired_open else "CloseObject"
                 desired = "打开" if desired_open else "关闭"
@@ -1067,6 +1088,7 @@ class ThorDataGenerator:
                     self._atomic_candidate(
                         group,
                         target,
+                        by_id,
                         simulator_action,
                         f"{desired} {object_type(target)}。",
                         simulator_action,
@@ -1545,6 +1567,19 @@ class ThorDataGenerator:
 
     def finalize(self, *, complete: bool) -> None:
         if complete:
+            rows = list(iter_jsonl(self.samples_path))
+            collisions = instruction_plan_collisions(
+                rows,
+                image_identity=lambda row: hashlib.sha256(
+                    (self.output_dir / str(row["image"])).read_bytes()
+                ).hexdigest(),
+            )
+            if collisions:
+                first_key = next(iter(collisions))
+                raise RuntimeError(
+                    "Ambiguous generated input maps to multiple gold plans: "
+                    f"image_sha256={first_key[0]!r}, instruction={first_key[1]!r}"
+                )
             self.assign_wrong_images()
         self.scenes_exhausted = self.scenes_exhausted or not complete
         self.write_report(complete=complete)
