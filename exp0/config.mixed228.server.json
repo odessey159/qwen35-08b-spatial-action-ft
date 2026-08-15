@@ -1,0 +1,49 @@
+{
+  "model_id": "/model/ModelScope/Qwen/Qwen3.5-0.8B",
+  "dataset_path": "mixed228_data/samples.jsonl",
+  "output_dir": "outputs_mixed228_new_prompt",
+  "min_samples": 200,
+  "max_samples": 300,
+  "model": {
+    "dtype": "bfloat16",
+    "device_map": "auto",
+    "attn_implementation": "sdpa",
+    "max_new_tokens": 512,
+    "do_sample": false,
+    "seed": 42,
+    "format_demo_as_turns": false
+  },
+  "allowed_actions": [
+    "GotoLocation",
+    "PickupObject",
+    "PutObject",
+    "SliceObject",
+    "CleanObject",
+    "HeatObject",
+    "ToggleObject",
+    "OpenObject",
+    "CloseObject"
+  ],
+  "allowed_objects": [
+    "AlarmClock", "Apple", "ArmChair", "BaseballBat", "BasketBall",
+    "BathtubBasin", "Bed", "Book", "Bowl", "Box", "Bread", "ButterKnife",
+    "CD", "Cabinet", "Candle", "CellPhone", "Cloth", "CoffeeMachine",
+    "CoffeeTable", "CounterTop", "CreditCard", "Cup", "Desk", "DiningTable",
+    "DishSponge", "Drawer", "Dresser", "Egg", "Fork", "Fridge", "GarbageCan",
+    "Glassbottle", "HandTowel", "Kettle", "KeyChain", "Knife", "Ladle",
+    "Laptop", "Lettuce", "Microwave", "Mug", "Newspaper", "Ottoman", "Pan",
+    "PaperTowelRoll", "Pen", "Pencil", "PepperShaker", "Pillow", "Plate",
+    "Plunger", "Pot", "Potato", "RemoteControl", "Safe", "SaltShaker",
+    "Shelf", "SideTable", "SinkBasin", "SoapBar", "SoapBottle", "Spatula",
+    "Spoon", "SprayBottle", "Statue", "TeddyBear", "TennisRacket",
+    "TissueBox", "ToiletPaper", "Tomato", "Towel", "Vase", "Watch",
+    "WateringCan", "WineBottle"
+  ],
+  "diagnosis_thresholds": {
+    "d_min_score": 0.6,
+    "near_gap": 0.03,
+    "large_gap": 0.1,
+    "floor_score": 0.15
+  },
+  "primary_metric": "action_seq_em"
+}

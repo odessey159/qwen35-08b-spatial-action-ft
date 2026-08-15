@@ -2,45 +2,25 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from .schema import PLAN_BLOCK_PATTERN, normalize_action, parse_action, parse_plan, read_json, read_jsonl, write_json
+from .schema import (
+    PLAN_BLOCK_PATTERN,
+    normalize_action,
+    parse_action,
+    parse_plan,
+    parse_plan_lenient,
+    read_json,
+    read_jsonl,
+    write_json,
+)
 
-
-SPACE_ACTION_PATTERN = re.compile(r"^([A-Za-z][A-Za-z0-9_]*)\s+([A-Za-z][A-Za-z0-9_]*)[。.]?$")
-LEADING_MARKER_PATTERN = re.compile(r"^(?:[-*]|\d+[.)])\s*")
-
-
-def lenient_actions(text: str, allowed_actions: list[str]) -> list[str]:
-    block_match = PLAN_BLOCK_PATTERN.search(text)
-    block = block_match.group(1) if block_match else text
-    canonical_names = {name.casefold(): name for name in allowed_actions}
-    actions: list[str] = []
-    for raw_line in block.splitlines():
-        line = LEADING_MARKER_PATTERN.sub("", raw_line.strip()).strip("` ")
-        if not line:
-            continue
-        parsed = parse_action(line)
-        if parsed is None:
-            space_match = SPACE_ACTION_PATTERN.match(line)
-            if space_match is None:
-                continue
-            raw_name, raw_arg = space_match.groups()
-            name = canonical_names.get(raw_name.casefold())
-            if name is None:
-                continue
-            actions.append(f"{name}({raw_arg})")
-            continue
-        raw_name, args = parsed
-        name = canonical_names.get(raw_name.casefold())
-        if name is None:
-            continue
-        actions.append(f"{name}({','.join(args)})")
-    return actions
+# The lenient reader now lives in schema.py and is used by the main evaluator too,
+# so this script no longer keeps a second copy that could drift out of sync.
+lenient_actions = parse_plan_lenient
 
 
 def score_actions(predicted: list[str], gold: list[str]) -> tuple[float, float]:
@@ -134,7 +114,7 @@ def main() -> None:
         "unique_keys": len(keys),
         "conditions": summary,
         "top_unparseable_plan_lines": unparseable_lines.most_common(20),
-        "note": "Lenient metrics are supplemental diagnostics only; official Exp 0 metrics remain unchanged.",
+        "note": "补充诊断脚本。主评测（exp0.cli evaluate）已同时报告严格与宽松两套动作指标，并以 <summary> 的自然语言指标为主；本脚本只用于查看未解析行和越界动作名的明细。",
     }
     write_json(output_dir / "format_analysis.json", result)
     print(json.dumps(result, ensure_ascii=False, indent=2))

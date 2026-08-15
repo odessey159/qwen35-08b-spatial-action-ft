@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .prompts import build_messages, build_prompt_cases
-from .schema import append_jsonl, parse_plan, read_jsonl
+from .schema import append_jsonl, extract_summary, parse_plan_lenient, read_jsonl
 
 
 def _load_model(config: dict[str, Any]):
@@ -92,7 +92,14 @@ def run_inference(
             if key in completed:
                 continue
 
-            messages = build_messages(case.prompt, case.image_path)
+            messages = build_messages(
+                case.prompt,
+                case.image_path,
+                allowed_actions,
+                format_demo_as_turns=bool(
+                    config["model"].get("format_demo_as_turns", False)
+                ),
+            )
             started = time.perf_counter()
             raw_output = _generate_one(
                 torch_module,
@@ -102,7 +109,6 @@ def run_inference(
                 config["model"],
             )
             elapsed = time.perf_counter() - started
-            parsed = parse_plan(raw_output)
             append_jsonl(
                 output_path,
                 {
@@ -112,7 +118,8 @@ def run_inference(
                     "image": str(case.image_path) if case.image_path else None,
                     "prompt": case.prompt,
                     "raw_output": raw_output,
-                    "pred_actions": parsed.actions,
+                    "pred_actions": parse_plan_lenient(raw_output, allowed_actions),
+                    "pred_nl": extract_summary(raw_output),
                     "elapsed_seconds": round(elapsed, 4),
                 },
             )

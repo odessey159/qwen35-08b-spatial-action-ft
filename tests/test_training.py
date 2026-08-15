@@ -90,8 +90,13 @@ class TrainingDataTests(unittest.TestCase):
                     encoding="utf-8"
                 ).splitlines()
             ]
-            self.assertIn("<image>", prepared_rows[0]["messages"][0]["content"])
-            self.assertIn("<plan>", prepared_rows[0]["messages"][1]["content"])
+            roles = [message["role"] for message in prepared_rows[0]["messages"]]
+            self.assertEqual(roles, ["system", "user", "assistant"])
+            self.assertIn("<summary>", prepared_rows[0]["messages"][0]["content"])
+            self.assertIn("<image>", prepared_rows[0]["messages"][1]["content"])
+            self.assertIn("<plan>", prepared_rows[0]["messages"][2]["content"])
+            self.assertIn("<summary>", prepared_rows[0]["messages"][2]["content"])
+            self.assertNotIn("ActionName", prepared_rows[0]["messages"][0]["content"])
 
     def test_launcher_blocks_unresolved_freeze_policy(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

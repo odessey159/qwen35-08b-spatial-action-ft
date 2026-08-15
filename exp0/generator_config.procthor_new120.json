@@ -1,0 +1,47 @@
+{
+  "seed": 1042,
+  "source": "procthor",
+  "revision": "439193522244720b86d8c81cde2e51e3a4d150cf",
+  "split": "train",
+  "scene_indices": [
+    3783, 9190, 2735, 4622, 6685, 574, 8790, 4139, 7517, 2186,
+    3953, 942, 3937, 8227, 1457, 9723, 3634, 6030, 7984, 2857,
+    1668, 6500, 7642, 9586, 1928, 2330, 9305, 5319, 3642, 3561,
+    640, 1189, 8139, 5332, 3530, 3299, 9616, 5316, 8354, 4161,
+    4721, 5922, 7667, 8540, 5653, 2472, 6489, 6351, 6265, 1654,
+    9140, 2346, 8701, 6109, 8226, 341, 8497, 3455, 1718, 4301,
+    1475, 2948, 5394, 9461, 3170, 2112, 8341, 9514, 4934, 5758,
+    7872, 5921, 8604, 9619, 7359, 9949, 73, 3820, 5176, 1338
+  ],
+  "num_scenes": 80,
+  "output_dir": "new120_data",
+  "shard_output_root": "new120_shard_data",
+  "render": {
+    "width": 672,
+    "height": 672,
+    "field_of_view": 90,
+    "visibility_distance": 5.0,
+    "grid_size": 0.25,
+    "rotate_step_degrees": 45
+  },
+  "generation": {
+    "max_views_per_scene": 25,
+    "max_samples_per_scene": 12,
+    "camera_horizons": [0, 30],
+    "camera_rotations": [0, 45, 90, 135, 180, 225, 270, 315],
+    "counterfactual_pairs": 20,
+    "group_quotas": {
+      "pickup": 16,
+      "clean": 16,
+      "heat": 0,
+      "toggle": 12,
+      "slice": 12,
+      "open_close": 12
+    }
+  },
+  "spatial": {
+    "axis_threshold_m": 0.15,
+    "close_threshold_m": 1.5,
+    "far_threshold_m": 3.0
+  }
+}

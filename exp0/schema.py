@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,34 @@ from typing import Any
 
 ACTION_PATTERN = re.compile(r"^\s*([A-Za-z][A-Za-z0-9_]*)\s*\((.*)\)\s*$")
 PLAN_BLOCK_PATTERN = re.compile(r"<plan>\s*(.*?)\s*</plan>", re.IGNORECASE | re.DOTALL)
+SUMMARY_BLOCK_PATTERN = re.compile(
+    r"<summary>\s*(.*?)\s*(?:</summary>|$)", re.IGNORECASE | re.DOTALL
+)
+
+# `PickupObject Plate` instead of `PickupObject(Plate)` accounted for 99.3% of all
+# plan lines in the first run. The lenient reader accepts that form, plus list
+# markers, code fences and casing drift, and drops anything whose head token is
+# not in the closed action vocabulary.
+SPACE_ACTION_PATTERN = re.compile(
+    r"^([A-Za-z][A-Za-z0-9_]*)[\s:：,，-]+(.+?)[。.]?$"
+)
+LEADING_MARKER_PATTERN = re.compile(r"^(?:[-*+•]|\d+\s*[.、)])\s*")
+
+# Chinese surface forms accepted for each action when scoring the <summary> text.
+# Note ToggleObject and OpenObject genuinely overlap on 打开/开启 in Chinese; the
+# ordered matcher below resolves most cases by position, and `nl_order_ok` will
+# expose the rest.
+ACTION_NL_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "GotoLocation": ("前往", "走到", "走向", "来到", "去到", "移动到", "到达", "靠近", "走过去"),
+    "PickupObject": ("拿起", "拿出", "取出", "拿走", "捡起", "抓起", "取下", "拿到"),
+    "PutObject": ("放入", "放到", "放进", "放置", "放在", "放上", "装进", "放好"),
+    "SliceObject": ("切开", "切成", "切片", "切下", "切"),
+    "CleanObject": ("清洁", "清洗", "洗干净", "洗净", "冲洗", "擦干净", "擦", "洗"),
+    "HeatObject": ("加热", "热一下", "微波", "加温", "热"),
+    "ToggleObject": ("切换", "开关", "打开", "开启", "点亮", "关掉", "按下"),
+    "OpenObject": ("打开", "拉开", "开启", "掀开", "开"),
+    "CloseObject": ("关闭", "关上", "合上", "关好", "盖上", "关"),
+}
 
 
 @dataclass(frozen=True)
@@ -107,6 +136,155 @@ def parse_plan(text: str) -> ParsedPlan:
         has_plan_tags=has_tags,
         all_lines_parseable=all_parseable,
     )
+
+
+def parse_plan_lenient(text: str, allowed_actions: list[str] | set[str]) -> list[str]:
+    """Best-effort action list. Vocabulary-anchored, so it cannot invent actions."""
+    block_match = PLAN_BLOCK_PATTERN.search(text)
+    block = block_match.group(1) if block_match else text
+    canonical = {name.casefold(): name for name in allowed_actions}
+
+    actions: list[str] = []
+    for raw_line in block.splitlines():
+        line = LEADING_MARKER_PATTERN.sub("", raw_line.strip()).strip("`* ")
+        if not line:
+            continue
+        strict = parse_action(line)
+        if strict is not None:
+            raw_name, args = strict
+        else:
+            loose = SPACE_ACTION_PATTERN.match(line)
+            if loose is None:
+                continue
+            raw_name = loose.group(1)
+            args = [
+                token.strip(" ()")
+                for token in re.split(r"[,，、]", loose.group(2))
+                if token.strip(" ()")
+            ]
+        name = canonical.get(raw_name.casefold())
+        if name is None:
+            continue
+        actions.append(f"{name}({','.join(args)})")
+    return actions
+
+
+def extract_summary(text: str) -> str:
+    """Pull the natural-language plan out of a raw generation.
+
+    Prefers an explicit <summary> block. Falls back to whatever follows the plan
+    block, with echoed instruction lines removed -- 91% of the first run's
+    outputs contained a verbatim copy of a contract sentence, which would
+    otherwise be scored as if it were the model's answer.
+    """
+    summary_match = SUMMARY_BLOCK_PATTERN.search(text)
+    if summary_match is not None:
+        candidate = summary_match.group(1)
+    else:
+        plan_match = PLAN_BLOCK_PATTERN.search(text)
+        candidate = text[plan_match.end() :] if plan_match else text
+
+    echo_markers = (
+        "随后用一句自然语言",
+        "动作序列必须放在最前面",
+        "请严格输出",
+        "可用动作仅限",
+        "每行一个动作",
+        "不要输出",
+        "回答必须",
+        "格式示例",
+    )
+    kept = [
+        line.strip()
+        for line in candidate.splitlines()
+        if line.strip()
+        and not line.strip().startswith("<")
+        and not any(marker in line for marker in echo_markers)
+    ]
+    return " ".join(kept).strip()
+
+
+def _char_ngrams(text: str, size: int = 2) -> Counter[str]:
+    compact = re.sub(r"\s+", "", text)
+    if len(compact) < size:
+        return Counter([compact] if compact else [])
+    return Counter(compact[i : i + size] for i in range(len(compact) - size + 1))
+
+
+def char_ngram_f1(predicted: str, gold: str) -> float:
+    pred_grams, gold_grams = _char_ngrams(predicted), _char_ngrams(gold)
+    if not pred_grams or not gold_grams:
+        return 0.0
+    overlap = sum((pred_grams & gold_grams).values())
+    if overlap == 0:
+        return 0.0
+    precision = overlap / sum(pred_grams.values())
+    recall = overlap / sum(gold_grams.values())
+    return 2 * precision * recall / (precision + recall)
+
+
+def score_summary(
+    predicted_nl: str, gold_actions: list[str], gold_nl: str
+) -> dict[str, float]:
+    """Deterministic scoring of the natural-language plan.
+
+    No embedding model or judge required, so this runs anywhere. It checks the
+    three things that make an NL plan correct: every gold step is mentioned,
+    in the right order, naming the right objects. `nl_char_f1` is a soft
+    similarity kept alongside for ranking near-misses; feed `pred_nl` from
+    scored_predictions.json to an LLM judge later if a softer score is wanted.
+    """
+    if not predicted_nl:
+        return {
+            "nl_present": 0.0,
+            "nl_action_recall": 0.0,
+            "nl_object_recall": 0.0,
+            "nl_order_ok": 0.0,
+            "nl_plan_match": 0.0,
+            "nl_char_f1": 0.0,
+        }
+
+    names: list[str] = []
+    objects: list[str] = []
+    for action in gold_actions:
+        parsed = parse_action(action)
+        if parsed is None:
+            continue
+        name, args = parsed
+        names.append(name)
+        objects.extend(args)
+
+    cursor = 0
+    matched = 0
+    ordered = True
+    for name in names:
+        keywords = ACTION_NL_KEYWORDS.get(name, ())
+        positions = [
+            predicted_nl.find(keyword, cursor)
+            for keyword in keywords
+            if predicted_nl.find(keyword, cursor) >= 0
+        ]
+        if positions:
+            matched += 1
+            cursor = min(positions) + 1
+        else:
+            ordered = False
+
+    lowered = predicted_nl.casefold()
+    unique_objects = list(dict.fromkeys(objects))
+    object_hits = sum(1 for obj in unique_objects if obj.casefold() in lowered)
+    object_recall = object_hits / len(unique_objects) if unique_objects else 1.0
+    action_recall = matched / len(names) if names else 1.0
+    order_ok = bool(ordered and names and matched == len(names))
+
+    return {
+        "nl_present": 1.0,
+        "nl_action_recall": action_recall,
+        "nl_object_recall": object_recall,
+        "nl_order_ok": float(order_ok),
+        "nl_plan_match": float(order_ok and object_recall == 1.0),
+        "nl_char_f1": char_ngram_f1(predicted_nl, gold_nl),
+    }
 
 
 def _require_type(

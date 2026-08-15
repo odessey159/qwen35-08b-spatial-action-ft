@@ -6,7 +6,9 @@ import random
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
+
+from exp0.prompts import system_prompt
 
 from .common import TrainingConfigError, require_mapping, resolve_path
 
@@ -97,27 +99,27 @@ def _normalize_sample(
     )
 
 
-def _output_contract(allowed_actions: Iterable[str]) -> str:
-    action_text = " ".join(allowed_actions)
-    return f"""可用动作仅限：{action_text}
-请严格输出以下两部分，不要输出分析过程：
-<plan>
-ActionName(Object)
-...</plan>
-随后用一句自然语言描述相同步骤。
-动作序列必须放在最前面，每行一个动作。"""
-
-
 def _swift_row(sample: NormalizedSample, allowed_actions: list[str]) -> dict[str, Any]:
-    prompt = (
-        f"<image>\n目标指令：{sample.instruction}\n\n"
-        f"请根据图像生成计划。\n\n{_output_contract(allowed_actions)}"
-    )
-    response = "<plan>\n" + "\n".join(sample.plan_actions) + f"\n</plan>\n{sample.plan_nl}"
+    """One ms-swift row whose prompt matches the Exp 0 condition-A prompt exactly.
+
+    The system text is imported from `exp0.prompts` rather than duplicated so the
+    zero-shot baseline and the fine-tuned model cannot drift apart -- a pre/post
+    comparison across two different prompts measures the prompt, not the tuning.
+    The old local copy of the contract carried the literal `ActionName(Object)`
+    placeholder, which the base model reproduced verbatim in 61% of D outputs.
+    """
     return {
         "messages": [
-            {"role": "user", "content": prompt},
-            {"role": "assistant", "content": response},
+            {"role": "system", "content": system_prompt(allowed_actions, inline_example=True)},
+            {"role": "user", "content": f"<image>\n目标指令：{sample.instruction}"},
+            {
+                "role": "assistant",
+                "content": (
+                    "<plan>\n"
+                    + "\n".join(sample.plan_actions)
+                    + f"\n</plan>\n<summary>\n{sample.plan_nl}\n</summary>"
+                ),
+            },
         ],
         "images": [str(sample.image_path)],
     }
@@ -308,20 +310,29 @@ def validate_prepared_dataset(config: dict[str, Any], base_dir: Path) -> dict[st
         for index, row in enumerate(rows, start=1):
             messages = row.get("messages")
             images = row.get("images")
-            if not isinstance(messages, list) or len(messages) != 2:
-                raise TrainingConfigError(f"{path}:{index}: expected exactly two messages")
+            if not isinstance(messages, list) or len(messages) != 3:
+                raise TrainingConfigError(
+                    f"{path}:{index}: expected exactly three messages (system/user/assistant)"
+                )
             if not isinstance(images, list) or len(images) != 1:
                 raise TrainingConfigError(f"{path}:{index}: expected exactly one image")
             if not Path(str(images[0])).is_file():
                 raise TrainingConfigError(f"{path}:{index}: image does not exist: {images[0]}")
-            if messages[0].get("role") != "user" or "<image>" not in str(
+            if messages[0].get("role") != "system" or "<summary>" not in str(
                 messages[0].get("content", "")
             ):
-                raise TrainingConfigError(f"{path}:{index}: invalid multimodal user message")
-            if messages[1].get("role") != "assistant" or "<plan>" not in str(
+                raise TrainingConfigError(f"{path}:{index}: invalid system message")
+            if messages[1].get("role") != "user" or "<image>" not in str(
                 messages[1].get("content", "")
             ):
+                raise TrainingConfigError(f"{path}:{index}: invalid multimodal user message")
+            assistant = str(messages[2].get("content", ""))
+            if messages[2].get("role") != "assistant" or "<plan>" not in assistant:
                 raise TrainingConfigError(f"{path}:{index}: invalid assistant response")
+            if "<summary>" not in assistant:
+                raise TrainingConfigError(
+                    f"{path}:{index}: assistant response is missing the <summary> block"
+                )
         counts[split] = len(rows)
     if counts["train"] == 0:
         raise TrainingConfigError("Prepared training split is empty")

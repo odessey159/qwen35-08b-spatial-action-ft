@@ -36,6 +36,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--dataset-dir", type=Path, required=True)
     parser.add_argument("--expected-count", type=int, default=240)
+    parser.add_argument(
+        "--expected-group",
+        action="append",
+        default=[],
+        metavar="NAME=COUNT",
+        help="Expected task-group count; repeat for custom dataset compositions",
+    )
+    parser.add_argument("--expected-counterfactual-pairs", type=int)
     parser.add_argument("--width", type=int, default=672)
     parser.add_argument("--height", type=int, default=672)
     return parser.parse_args()
@@ -96,8 +104,23 @@ def main() -> None:
         if pair_id:
             counterfactual_groups[str(pair_id)].append(row)
 
-    require(dict(group_counts) == EXPECTED_GROUPS, f"unexpected groups: {dict(group_counts)}")
-    require(len(counterfactual_groups) == 40, "expected 40 counterfactual pairs")
+    expected_groups = EXPECTED_GROUPS
+    if args.expected_group:
+        expected_groups = {}
+        for item in args.expected_group:
+            name, separator, count = item.partition("=")
+            require(bool(separator and name and count), f"invalid --expected-group: {item}")
+            expected_groups[name] = int(count)
+    require(dict(group_counts) == expected_groups, f"unexpected groups: {dict(group_counts)}")
+    expected_pairs = (
+        args.expected_counterfactual_pairs
+        if args.expected_counterfactual_pairs is not None
+        else 40
+    )
+    require(
+        len(counterfactual_groups) == expected_pairs,
+        f"expected {expected_pairs} counterfactual pairs",
+    )
     for pair_id, pair in counterfactual_groups.items():
         require(len(pair) == 2, f"{pair_id} does not contain exactly two samples")
         require(len({row["instruction"] for row in pair}) == 1, f"{pair_id} instruction differs")

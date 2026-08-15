@@ -95,6 +95,49 @@ done
 
 B 是一个概念条件，但按总纲分别运行三种序列化，因此每条样本实际产生 7 次推理。
 
+## 输出格式与打分
+
+**所有格式规则都写在 system turn 里，user turn 只放题目本身。** 第一轮把规则连同
+一个字面占位符 `ActionName(Object)` 放在 user turn 里，0.8B 把它当成模板照抄：D 条件
+61.3% 的输出里含字面量 `ActionName`，全部输出里 90.9% 把规则中的整句复读了回来。规则
+挪到 system turn 之后，任何原样复述都不会再被当成答案。
+
+模型被要求输出两段：
+
+```
+<plan>
+GotoLocation(Fridge)
+OpenObject(Fridge)
+</plan>
+<summary>
+走到 Fridge 前，把 Fridge 打开。
+</summary>
+```
+
+**`<plan>` 是主指标**（`primary_metric = action_seq_em`）。词表封闭，精确匹配无歧义，
+不需要 judge，也直接对应训练时算 loss 的那段目标。打分走宽松解析器：接受
+`GotoLocation Fridge`（无括号）、大小写漂移、行首编号和列表符号，并丢弃词表外的动作名
+——第一轮 99.3% 的动作行是无括号形式，被严格正则整体判死。严格解析结果仍然保留，但只
+作为 `strict_*` 格式合规率上报，不代表能力。
+
+**`<summary>` 是次指标。** `nl_plan_match` = 全部 gold 步骤在自然语言里按顺序出现，且
+物体名齐全，判定用同义词表（`schema.ACTION_NL_KEYWORDS`），所以"把门拉开"和"打开"都
+算对，不需要 SBERT 或 LLM judge。`scored_predictions.json` 里保留了 `pred_nl` 和
+`gold_nl`，想事后接 judge 随时可以。
+
+`<summary>` 这个闭合标签保留着，不是为了打分，是为了**把两段输出切干净**：第一轮没有
+标签时，`</plan>` 之后的内容有 90.9% 是复读的提示词，无论拿它做评测还是做训练目标都是
+噪声。有了标签，训练时想给自然语言那一段降权或直接 mask 掉 loss 也有明确边界。
+
+`system_prompt` 里带一个格式示例，用的是 `BathtubBasin` / `WateringCan`——这两个物体
+不出现在 240 条诊断数据的任何场景里，示例的 3 步长度也不等于任何 gold 计划长度（gold
+是 1/2/4/6 步）。因此"照抄示例"会被 `example_echo_rate` 抓到，而不会悄悄抬高分数。
+
+若重跑后 D 的结构合法率仍然上不去，把 `config.json` 的 `model.format_demo_as_turns`
+改成 `true`：格式示例会从 system turn 里的一段文字变成一轮真实的 user/assistant 对话。
+小模型对"示范过的 assistant 轮"服从度高得多。该示例不含任何场景，只教排版，且七个条件
+完全一致，不会改变条件之间的可比性。
+
 ## 使用顺序
 
 安装依赖后，依次执行：
@@ -115,13 +158,27 @@ python -m exp0.cli infer --overwrite
 
 结果写入 `outputs/`：
 
-- `predictions.jsonl`：模型原始输出和解析动作
-- `scored_predictions.json`：逐样本得分
-- `metrics.json`：条件汇总和差值
+- `predictions.jsonl`：模型原始输出、宽松解析出的动作、抽出的 `pred_nl`
+- `scored_predictions.json`：逐样本得分，含 `pred_nl` / `gold_nl`，可直接喂给 LLM judge
+- `metrics.json`：条件汇总、切片汇总和差值
 - `metrics_by_condition.csv`：表格结果
-- `report.md`：按总纲规则生成的瓶颈判读
+- `report.md`：三张表（动作序列 / 自然语言 / 格式合规）加瓶颈判读
 
-默认只检查动作名称是否越界。若需要检查 84 类物体词表，将完整词表填入 `config.json` 的 `allowed_objects`。
+`report.md` 会按 `all` / `counterfactual` / `non_counterfactual` 以及每个 task_group
+分别报主指标和 `A − A′`。这一点是必需的：本数据集有 81.7% 的样本只看指令文本就能答对，
+`A − A′` 只在 counterfactual 切片上才有解释力，池化后的那个数会被稀释到看不出东西。
+
+物体词表已填入 `config.json` 的 `allowed_objects`（`ALFRED_OBJECT_CLASSES ∪
+ALFRED_RECEPTACLE_CLASSES`，去重后 75 类；总纲写的"58+26=84"没有扣除两个集合的重叠）。
+`object_vocab_violation_rate` 因此不再是 `null`。
+
+**判读会在 D 不达标时短路。** 总纲 §6.1 的判读表规定 D 低时其余条件的对比无意义，
+`diagnose()` 现在真的会停在那里，只返回一条结论。上一版会继续追加"模型没有有效使用图像"
+这类结论，紧跟在"其余条件先别看"后面。
+
+`diagnosis_thresholds` 是 `d_min_score=0.6`、`floor_score=0.15`。旧的 `0.8 / 0.25`
+里，`floor_score=0.25` 对一个随机基线为 0 的精确匹配指标来说几乎必然触发，起不到判别
+作用。这两个数是可调的判定口径，不是测量结果。
 
 如果 A/B/C 全部触发 floor effect，报告只提示进入约 300 step 短 LoRA；短 LoRA 训练不属于本目录的零样本推理代码。
 训练数据转换、服务器环境安装和 ms-swift 启动入口见 `../training/README.md`。
