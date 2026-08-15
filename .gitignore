@@ -1,0 +1,22 @@
+# Local credentials
+passkey.txt
+exp0/_ssh_askpass.cmd
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local runtime artifacts
+*.log
+.pytest_cache/
+.mypy_cache/
+
+# Training outputs and large model checkpoints
+outputs/
+checkpoints/
+*.safetensors
+*.ckpt
+*.pt
+*.pth

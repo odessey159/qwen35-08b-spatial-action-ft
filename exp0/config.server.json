@@ -1,0 +1,33 @@
+{
+  "model_id": "/model/ModelScope/Qwen/Qwen3.5-0.8B",
+  "dataset_path": "data/samples.jsonl",
+  "output_dir": "outputs",
+  "min_samples": 200,
+  "max_samples": 300,
+  "model": {
+    "dtype": "bfloat16",
+    "device_map": "auto",
+    "attn_implementation": "sdpa",
+    "max_new_tokens": 512,
+    "do_sample": false,
+    "seed": 42
+  },
+  "allowed_actions": [
+    "GotoLocation",
+    "PickupObject",
+    "PutObject",
+    "SliceObject",
+    "CleanObject",
+    "HeatObject",
+    "ToggleObject",
+    "OpenObject",
+    "CloseObject"
+  ],
+  "allowed_objects": [],
+  "diagnosis_thresholds": {
+    "d_min_score": 0.8,
+    "near_gap": 0.03,
+    "large_gap": 0.1,
+    "floor_score": 0.25
+  }
+}

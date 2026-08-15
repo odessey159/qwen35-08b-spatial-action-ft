@@ -1,0 +1,36 @@
+{
+  "seed": 42,
+  "source": "procthor",
+  "revision": "439193522244720b86d8c81cde2e51e3a4d150cf",
+  "split": "train",
+  "num_scenes": 2,
+  "output_dir": "smoke_data",
+  "render": {
+    "width": 300,
+    "height": 300,
+    "field_of_view": 90,
+    "visibility_distance": 5.0,
+    "grid_size": 0.25,
+    "rotate_step_degrees": 45
+  },
+  "generation": {
+    "max_views_per_scene": 20,
+    "max_samples_per_scene": 1,
+    "camera_horizons": [0, 30],
+    "camera_rotations": [0, 45, 90, 135, 180, 225, 270, 315],
+    "counterfactual_pairs": 0,
+    "group_quotas": {
+      "pickup": 2,
+      "clean": 0,
+      "heat": 0,
+      "toggle": 0,
+      "slice": 0,
+      "open_close": 0
+    }
+  },
+  "spatial": {
+    "axis_threshold_m": 0.15,
+    "close_threshold_m": 1.5,
+    "far_threshold_m": 3.0
+  }
+}

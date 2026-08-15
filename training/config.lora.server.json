@@ -1,0 +1,75 @@
+{
+  "server": {
+    "python_executable": "/root/qwen35-08b-spatial-action-ft/.venv-train/bin/python",
+    "swift_executable": "/root/qwen35-08b-spatial-action-ft/.venv-train/bin/swift",
+    "cuda_visible_devices": "0",
+    "expected_torch_cuda": "13.2",
+    "minimum_gpu_memory_gib": 20,
+    "image_max_token_num": 1024,
+    "pytorch_cuda_alloc_conf": "expandable_segments:True"
+  },
+  "model": {
+    "path": "/model/ModelScope/Qwen/Qwen3.5-0.8B",
+    "output_dir": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-lora"
+  },
+  "data": {
+    "source_dataset": "../exp0/data/samples.jsonl",
+    "prepared_dir": "prepared",
+    "validation_ratio": 0.1,
+    "split_group_fields": [
+      "scene_id",
+      "counterfactual_group"
+    ],
+    "require_sim_verified": true,
+    "seed": 42
+  },
+  "training": {
+    "tuner_type": "lora",
+    "max_steps": 300,
+    "learning_rate": 0.0001,
+    "per_device_train_batch_size": 4,
+    "per_device_eval_batch_size": 4,
+    "gradient_accumulation_steps": 1,
+    "max_length": 2048,
+    "group_by_length": true,
+    "gradient_checkpointing": true,
+    "use_liger_kernel": true,
+    "attn_impl": "flash_attention_2",
+    "torch_dtype": "bfloat16",
+    "add_non_thinking_prefix": true,
+    "loss_scale": "ignore_empty_think",
+    "load_from_cache_file": true,
+    "warmup_ratio": 0.05,
+    "eval_steps": 50,
+    "save_steps": 50,
+    "save_total_limit": 2,
+    "resume_from_checkpoint": null,
+    "logging_steps": 5,
+    "dataset_num_proc": 4,
+    "dataloader_num_workers": 4,
+    "report_to": "tensorboard"
+  },
+  "lora": {
+    "rank": 8,
+    "alpha": 32,
+    "target_modules": [
+      "all-linear"
+    ]
+  },
+  "freeze_policy": {
+    "llm": false,
+    "vit": false,
+    "aligner": false
+  },
+  "allowed_actions": [
+    "GotoLocation",
+    "PickupObject",
+    "PutObject",
+    "SliceObject",
+    "CleanObject",
+    "HeatObject",
+    "ToggleObject",
+    "OpenObject",
+    "CloseObject"
+  ]
+}

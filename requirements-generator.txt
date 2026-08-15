@@ -1,0 +1,5 @@
+ai2thor==5.0.0
+prior
+numpy<2
+Pillow
+

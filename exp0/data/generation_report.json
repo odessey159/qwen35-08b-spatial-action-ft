@@ -1,0 +1,276 @@
+{
+  "seed": 42,
+  "source": "ithor+procthor",
+  "sample_count": 240,
+  "scene_count": 26,
+  "group_counts": {
+    "clean": 32,
+    "open_close": 24,
+    "pickup": 32,
+    "counterfactual_put": 80,
+    "slice": 24,
+    "toggle": 24,
+    "heat": 24
+  },
+  "scene_counts": {
+    "procthor_train_03771": 12,
+    "procthor_train_06672": 12,
+    "procthor_train_07261": 12,
+    "procthor_train_00760": 7,
+    "procthor_train_03779": 11,
+    "procthor_train_02305": 12,
+    "procthor_train_09215": 12,
+    "procthor_train_03625": 12,
+    "procthor_train_04236": 12,
+    "procthor_train_09005": 4,
+    "procthor_train_05924": 2,
+    "procthor_train_04736": 12,
+    "procthor_train_04366": 12,
+    "procthor_train_04056": 12,
+    "procthor_train_04178": 10,
+    "procthor_train_01287": 8,
+    "procthor_train_05045": 12,
+    "procthor_train_00147": 12,
+    "procthor_train_02263": 12,
+    "procthor_train_05451": 11,
+    "procthor_train_05346": 1,
+    "procthor_train_04259": 3,
+    "procthor_train_05360": 3,
+    "FloorPlan3": 6,
+    "FloorPlan4": 12,
+    "FloorPlan1": 6
+  },
+  "counterfactual_ratio": 0.3333333333333333,
+  "rejections": {
+    "no_candidate:toggle": 66,
+    "no_candidate:open_close": 35,
+    "camera_teleport_failed": 2,
+    "no_candidate:slice": 98,
+    "insufficient_visible_objects": 157,
+    "no_candidate:clean": 33,
+    "no_candidate:pickup": 5,
+    "simulation_failed:counterfactual_put": 19,
+    "no_candidate:heat": 41
+  },
+  "shard_reports": [
+    {
+      "seed": 42,
+      "source": "procthor",
+      "sample_count": 54,
+      "scene_count": 5,
+      "group_counts": {
+        "clean": 8,
+        "open_close": 6,
+        "pickup": 8,
+        "counterfactual_put": 20,
+        "slice": 6,
+        "toggle": 6
+      },
+      "scene_counts": {
+        "procthor_train_03771": 12,
+        "procthor_train_06672": 12,
+        "procthor_train_07261": 12,
+        "procthor_train_00760": 7,
+        "procthor_train_03779": 11
+      },
+      "counterfactual_ratio": 0.37037037037037035,
+      "rejections": {
+        "no_candidate:toggle": 15,
+        "no_candidate:open_close": 7,
+        "camera_teleport_failed": 1,
+        "no_candidate:slice": 27,
+        "insufficient_visible_objects": 26,
+        "no_candidate:clean": 9,
+        "no_candidate:pickup": 1,
+        "simulation_failed:counterfactual_put": 4
+      }
+    },
+    {
+      "seed": 42,
+      "source": "procthor",
+      "sample_count": 54,
+      "scene_count": 6,
+      "group_counts": {
+        "counterfactual_put": 20,
+        "clean": 8,
+        "pickup": 8,
+        "open_close": 6,
+        "toggle": 6,
+        "slice": 6
+      },
+      "scene_counts": {
+        "procthor_train_02305": 12,
+        "procthor_train_09215": 12,
+        "procthor_train_03625": 12,
+        "procthor_train_04236": 12,
+        "procthor_train_09005": 4,
+        "procthor_train_05924": 2
+      },
+      "counterfactual_ratio": 0.37037037037037035,
+      "rejections": {
+        "simulation_failed:counterfactual_put": 6,
+        "insufficient_visible_objects": 33,
+        "no_candidate:pickup": 2,
+        "no_candidate:open_close": 5,
+        "no_candidate:toggle": 22,
+        "no_candidate:slice": 10,
+        "no_candidate:clean": 6
+      }
+    },
+    {
+      "seed": 42,
+      "source": "procthor",
+      "sample_count": 54,
+      "scene_count": 5,
+      "group_counts": {
+        "pickup": 8,
+        "counterfactual_put": 20,
+        "slice": 6,
+        "open_close": 6,
+        "toggle": 6,
+        "clean": 8
+      },
+      "scene_counts": {
+        "procthor_train_04736": 12,
+        "procthor_train_04366": 12,
+        "procthor_train_04056": 12,
+        "procthor_train_04178": 10,
+        "procthor_train_01287": 8
+      },
+      "counterfactual_ratio": 0.37037037037037035,
+      "rejections": {
+        "insufficient_visible_objects": 42,
+        "no_candidate:toggle": 17,
+        "no_candidate:clean": 16,
+        "no_candidate:open_close": 19,
+        "no_candidate:slice": 14,
+        "simulation_failed:counterfactual_put": 6,
+        "no_candidate:pickup": 2,
+        "camera_teleport_failed": 1
+      }
+    },
+    {
+      "seed": 42,
+      "source": "procthor",
+      "sample_count": 54,
+      "scene_count": 7,
+      "group_counts": {
+        "toggle": 6,
+        "pickup": 8,
+        "counterfactual_put": 20,
+        "open_close": 6,
+        "clean": 8,
+        "slice": 6
+      },
+      "scene_counts": {
+        "procthor_train_05045": 12,
+        "procthor_train_00147": 12,
+        "procthor_train_02263": 12,
+        "procthor_train_05451": 11,
+        "procthor_train_05346": 1,
+        "procthor_train_04259": 3,
+        "procthor_train_05360": 3
+      },
+      "counterfactual_ratio": 0.37037037037037035,
+      "rejections": {
+        "no_candidate:slice": 47,
+        "insufficient_visible_objects": 48,
+        "no_candidate:open_close": 4,
+        "simulation_failed:counterfactual_put": 3,
+        "no_candidate:clean": 2,
+        "no_candidate:toggle": 12
+      }
+    },
+    {
+      "seed": 43,
+      "source": "ithor",
+      "sample_count": 24,
+      "scene_count": 3,
+      "group_counts": {
+        "heat": 24
+      },
+      "scene_counts": {
+        "FloorPlan3": 6,
+        "FloorPlan4": 12,
+        "FloorPlan1": 6
+      },
+      "counterfactual_ratio": 0.0,
+      "rejections": {
+        "no_candidate:heat": 41,
+        "insufficient_visible_objects": 8
+      },
+      "shard_reports": [
+        {
+          "seed": 144,
+          "source": "ithor",
+          "sample_count": 6,
+          "scene_count": 2,
+          "group_counts": {
+            "heat": 6
+          },
+          "scene_counts": {
+            "FloorPlan3": 3,
+            "FloorPlan4": 3
+          },
+          "counterfactual_ratio": 0.0,
+          "rejections": {
+            "no_candidate:heat": 6
+          }
+        },
+        {
+          "seed": 144,
+          "source": "ithor",
+          "sample_count": 6,
+          "scene_count": 2,
+          "group_counts": {
+            "heat": 6
+          },
+          "scene_counts": {
+            "FloorPlan4": 3,
+            "FloorPlan1": 3
+          },
+          "counterfactual_ratio": 0.0,
+          "rejections": {
+            "insufficient_visible_objects": 5,
+            "no_candidate:heat": 15
+          }
+        },
+        {
+          "seed": 43,
+          "source": "ithor",
+          "sample_count": 6,
+          "scene_count": 2,
+          "group_counts": {
+            "heat": 6
+          },
+          "scene_counts": {
+            "FloorPlan3": 3,
+            "FloorPlan4": 3
+          },
+          "counterfactual_ratio": 0.0,
+          "rejections": {
+            "no_candidate:heat": 8
+          }
+        },
+        {
+          "seed": 43,
+          "source": "ithor",
+          "sample_count": 6,
+          "scene_count": 2,
+          "group_counts": {
+            "heat": 6
+          },
+          "scene_counts": {
+            "FloorPlan4": 3,
+            "FloorPlan1": 3
+          },
+          "counterfactual_ratio": 0.0,
+          "rejections": {
+            "no_candidate:heat": 12,
+            "insufficient_visible_objects": 3
+          }
+        }
+      ]
+    }
+  ]
+}

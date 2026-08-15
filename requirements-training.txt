@@ -1,0 +1,7 @@
+ms-swift==4.4.2
+transformers>=5.9,<6
+qwen_vl_utils>=0.0.14
+decord
+peft
+liger-kernel
+tensorboard
