@@ -19,6 +19,8 @@ Qwen3.5-0.8B 的 bf16 SFT。默认方案为全参数微调，同时保留 LoRA �
 - Exp-A、Exp-B 和 Exp-C 始终在 `<action>` 中保留完全相同的 primitive action sequence。
 - full-CoT 使用 `state=0.3 / plan=0.3 / action=0.4` 的非二值 `loss_scale`；plan-only 使用
   `plan=0.4 / action=0.6`。这两种配置关闭 Liger kernel，以保留分段权重。
+- prepared JSONL 为每个连续 assistant 区块写入一个标量 `loss_scale`；ms-swift 的 Swift
+  backend 会在 tokenize 前合并这些连续区块，从而保持单次生成的输出形态与分段权重对应。
 - LoRA 替代方案使用 `all-linear`，覆盖 Qwen3.5 的混合注意力线性层。
 - 不使用 QLoRA，也不手写 multimodal collator/mRoPE position ids。
 

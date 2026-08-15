@@ -38,15 +38,28 @@ class CotTrainingTests(unittest.TestCase):
                     row = json.loads(
                         (output / "train.jsonl").read_text(encoding="utf-8").splitlines()[0]
                     )
-                    assistant = row["messages"][2]
+                    assistant_messages = row["messages"][2:]
                     if scales:
-                        self.assertEqual(len(assistant["content"]), block_count)
-                        self.assertEqual(assistant["loss_scale"], scales)
-                        content = "".join(block["text"] for block in assistant["content"])
+                        self.assertEqual(len(assistant_messages), block_count)
+                        self.assertTrue(
+                            all(
+                                message["role"] == "assistant"
+                                and isinstance(message["content"], str)
+                                for message in assistant_messages
+                            )
+                        )
+                        self.assertEqual(
+                            [message["loss_scale"] for message in assistant_messages],
+                            scales,
+                        )
+                        content = "".join(
+                            message["content"] for message in assistant_messages
+                        )
                     else:
-                        self.assertIsInstance(assistant["content"], str)
-                        self.assertNotIn("loss_scale", assistant)
-                        content = assistant["content"]
+                        self.assertEqual(len(assistant_messages), 1)
+                        self.assertIsInstance(assistant_messages[0]["content"], str)
+                        self.assertNotIn("loss_scale", assistant_messages[0])
+                        content = assistant_messages[0]["content"]
                     sections = parse_response_sections(content)
                     self.assertTrue(sections["action"])
                     self.assertEqual(bool(sections["state"]), response_format == "cot")

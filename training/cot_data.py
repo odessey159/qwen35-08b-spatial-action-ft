@@ -189,18 +189,28 @@ def _swift_row(
         plan = [f"{index}. {text}" for index, text in enumerate(sections["plan"], start=1)]
         pieces.append(("plan", "<plan>\n" + "\n".join(plan) + "\n</plan>\n\n"))
     pieces.append(("action", "<action>\n" + "\n".join(sections["action"]) + "\n</action>"))
-    assistant: dict[str, Any] = {"role": "assistant"}
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": _system(allowed, response_format)},
+        {"role": "user", "content": f"<image>\n目标指令：{sample.instruction}"},
+    ]
     if weights:
-        assistant["content"] = [{"type": "text", "text": text} for _, text in pieces]
-        assistant["loss_scale"] = [weights[name] for name, _ in pieces]
+        messages.extend(
+            {
+                "role": "assistant",
+                "content": text,
+                "loss_scale": weights[name],
+            }
+            for name, text in pieces
+        )
     else:
-        assistant["content"] = "".join(text for _, text in pieces)
+        messages.append(
+            {
+                "role": "assistant",
+                "content": "".join(text for _, text in pieces),
+            }
+        )
     return {
-        "messages": [
-            {"role": "system", "content": _system(allowed, response_format)},
-            {"role": "user", "content": f"<image>\n目标指令：{sample.instruction}"},
-            assistant,
-        ],
+        "messages": messages,
         "images": [str(sample.image_path)],
     }
 
@@ -268,18 +278,6 @@ def prepare_cot_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool)
     return manifest
 
 
-def _content_text(value: Any) -> str:
-    if isinstance(value, str):
-        return value
-    if isinstance(value, list):
-        return "".join(
-            str(item.get("text", ""))
-            for item in value
-            if isinstance(item, dict) and item.get("type") == "text"
-        )
-    return ""
-
-
 def validate_cot_prepared_dataset(config: dict[str, Any], base_dir: Path) -> dict[str, int]:
     data = require_mapping(config.get("data"), "data")
     response_format, weights = _format_weights(config)
@@ -297,13 +295,24 @@ def validate_cot_prepared_dataset(config: dict[str, Any], base_dir: Path) -> dic
         rows = _read_jsonl(path) if path.stat().st_size else []
         for index, row in enumerate(rows, start=1):
             messages, images = row.get("messages"), row.get("images")
-            if not isinstance(messages, list) or len(messages) != 3:
-                raise TrainingConfigError(f"{path}:{index}: expected three messages")
+            expected_message_count = 2 + (len(required) if weights else 1)
+            if not isinstance(messages, list) or len(messages) != expected_message_count:
+                raise TrainingConfigError(
+                    f"{path}:{index}: expected {expected_message_count} messages"
+                )
             if not isinstance(images, list) or len(images) != 1 or not Path(str(images[0])).is_file():
                 raise TrainingConfigError(f"{path}:{index}: invalid image")
-            if [message.get("role") for message in messages] != ["system", "user", "assistant"]:
+            expected_roles = ["system", "user"] + ["assistant"] * (len(messages) - 2)
+            if [message.get("role") for message in messages] != expected_roles:
                 raise TrainingConfigError(f"{path}:{index}: invalid roles")
-            content = _content_text(messages[2].get("content"))
+            assistant_messages = messages[2:]
+            if any(
+                not isinstance(message.get("content"), str)
+                or not message["content"].strip()
+                for message in assistant_messages
+            ):
+                raise TrainingConfigError(f"{path}:{index}: assistant content must be text")
+            content = "".join(message["content"] for message in assistant_messages)
             sections = parse_response_sections(content)
             positions = []
             for name in required:
@@ -324,12 +333,15 @@ def validate_cot_prepared_dataset(config: dict[str, Any], base_dir: Path) -> dic
                 raise TrainingConfigError(f"{path}:{index}: {exc}") from exc
             if weights:
                 expected = [weights[name] for name in required]
-                scales = messages[2].get("loss_scale")
-                if not isinstance(scales, list) or [float(value) for value in scales] != expected:
+                scales = [message.get("loss_scale") for message in assistant_messages]
+                try:
+                    normalized_scales = [float(value) for value in scales]
+                except (TypeError, ValueError) as exc:
+                    raise TrainingConfigError(f"{path}:{index}: invalid loss_scale") from exc
+                if normalized_scales != expected:
                     raise TrainingConfigError(f"{path}:{index}: invalid loss_scale")
-                blocks = messages[2].get("content")
-                if not isinstance(blocks, list) or len(blocks) != len(expected):
-                    raise TrainingConfigError(f"{path}:{index}: loss_scale/content mismatch")
+            elif any("loss_scale" in message for message in assistant_messages):
+                raise TrainingConfigError(f"{path}:{index}: unexpected loss_scale")
         counts[split] = len(rows)
     if counts["train"] == 0:
         raise TrainingConfigError("Prepared training split is empty")
