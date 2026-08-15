@@ -1,0 +1,37 @@
+{
+  "seed": 1042,
+  "source": "procthor",
+  "revision": "439193522244720b86d8c81cde2e51e3a4d150cf",
+  "split": "train",
+  "num_scenes": 1000,
+  "output_dir": "new5000_data",
+  "shard_output_root": "new5000_shard_data",
+  "render": {
+    "width": 672,
+    "height": 672,
+    "field_of_view": 90,
+    "visibility_distance": 5.0,
+    "grid_size": 0.25,
+    "rotate_step_degrees": 45
+  },
+  "generation": {
+    "max_views_per_scene": 25,
+    "max_samples_per_scene": 12,
+    "camera_horizons": [0, 30],
+    "camera_rotations": [0, 45, 90, 135, 180, 225, 270, 315],
+    "counterfactual_pairs": 926,
+    "group_quotas": {
+      "pickup": 741,
+      "clean": 741,
+      "heat": 0,
+      "toggle": 556,
+      "slice": 555,
+      "open_close": 555
+    }
+  },
+  "spatial": {
+    "axis_threshold_m": 0.15,
+    "close_threshold_m": 1.5,
+    "far_threshold_m": 3.0
+  }
+}

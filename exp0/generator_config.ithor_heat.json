@@ -1,0 +1,38 @@
+{
+  "seed": 43,
+  "source": "ithor",
+  "scene_names": ["FloorPlan1", "FloorPlan2", "FloorPlan3", "FloorPlan4"],
+  "num_scenes": 4,
+  "bootstrap_procthor_index": 3779,
+  "bootstrap_split": "train",
+  "revision": "439193522244720b86d8c81cde2e51e3a4d150cf",
+  "output_dir": "shard_data/shard_4",
+  "render": {
+    "width": 672,
+    "height": 672,
+    "field_of_view": 90,
+    "visibility_distance": 5.0,
+    "grid_size": 0.25,
+    "rotate_step_degrees": 45
+  },
+  "generation": {
+    "max_views_per_scene": 100,
+    "max_samples_per_scene": 8,
+    "camera_horizons": [0, 30],
+    "camera_rotations": [0, 45, 90, 135, 180, 225, 270, 315],
+    "counterfactual_pairs": 0,
+    "group_quotas": {
+      "pickup": 0,
+      "clean": 0,
+      "heat": 24,
+      "toggle": 0,
+      "slice": 0,
+      "open_close": 0
+    }
+  },
+  "spatial": {
+    "axis_threshold_m": 0.15,
+    "close_threshold_m": 1.5,
+    "far_threshold_m": 3.0
+  }
+}
