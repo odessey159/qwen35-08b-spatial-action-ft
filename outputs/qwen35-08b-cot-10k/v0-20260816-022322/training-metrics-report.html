@@ -1,0 +1,1683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>10K Training Checkpoint Metrics</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="10K Training Checkpoint Metrics" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;10K Training Checkpoint Metrics&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --radius: var(--border-radius-lg, 12.5px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: 5px;
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: superellipse(1.5);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: superellipse(1.5);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress {
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: superellipse(1.5);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: superellipse(1.5);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed=&quot;true&quot;],
+  [aria-selected=&quot;true&quot;],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: 16px !important;
+  height: 16px !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div id=&quot;ckp-metrics-viz&quot;&gt;
+  &lt;style&gt;
+    #ckp-metrics-viz {
+      position: relative;
+      color: var(--foreground);
+      font-size: var(--font-size-base);
+      width: 100%;
+    }
+    #ckp-metrics-viz h2,
+    #ckp-metrics-viz h3 {
+      font-weight: 500;
+      margin: 0;
+    }
+    #ckp-metrics-viz .viz-subtitle {
+      margin: 6px 0 16px;
+      color: var(--muted-foreground);
+    }
+    #ckp-metrics-viz .plot-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px 28px;
+    }
+    #ckp-metrics-viz .plot-panel {
+      min-width: 0;
+    }
+    #ckp-metrics-viz .plot-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+    #ckp-metrics-viz .legend {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    #ckp-metrics-viz .legend button {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      color: var(--foreground);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 0;
+      font: inherit;
+    }
+    #ckp-metrics-viz .legend button[aria-pressed=&quot;false&quot;] {
+      color: var(--muted-foreground);
+      text-decoration: line-through;
+    }
+    #ckp-metrics-viz .legend-swatch {
+      width: 18px;
+      height: 3px;
+      background: var(--series-color);
+      display: inline-block;
+    }
+    #ckp-metrics-viz .plot {
+      width: 100%;
+      min-height: 258px;
+    }
+    #ckp-metrics-viz .details {
+      margin-top: 26px;
+    }
+    #ckp-metrics-viz .details h3 {
+      margin-bottom: 8px;
+    }
+    #ckp-metrics-viz .details-note {
+      margin-top: 8px;
+      color: var(--muted-foreground);
+    }
+    #ckp-metrics-viz .table td,
+    #ckp-metrics-viz .table th {
+      vertical-align: middle;
+    }
+    #ckp-metrics-viz .plot svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+    #ckp-metrics-viz .axis text,
+    #ckp-metrics-viz .axis-title,
+    #ckp-metrics-viz .endpoint-label {
+      fill: var(--foreground);
+      font-size: 12px;
+    }
+    #ckp-metrics-viz .axis path,
+    #ckp-metrics-viz .axis line,
+    #ckp-metrics-viz .chart-frame {
+      stroke: var(--border);
+    }
+    #ckp-metrics-viz .grid line {
+      stroke: var(--border);
+      stroke-opacity: 0.55;
+    }
+    #ckp-metrics-viz .grid path {
+      display: none;
+    }
+    #ckp-metrics-viz .series-line {
+      fill: none;
+      stroke-width: 2.2;
+      transition: opacity 180ms ease;
+    }
+    #ckp-metrics-viz .series-dot {
+      stroke: var(--background);
+      stroke-width: 1.5;
+      transition: opacity 180ms ease;
+    }
+    #ckp-metrics-viz .series-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #ckp-metrics-viz .hover-guide {
+      stroke: var(--foreground);
+      stroke-opacity: 0.55;
+      stroke-width: 1;
+      pointer-events: none;
+    }
+    #ckp-metrics-viz .hover-marker {
+      stroke: var(--background);
+      stroke-width: 2;
+      pointer-events: none;
+    }
+    #ckp-metrics-viz .tooltip {
+      position: absolute;
+      z-index: 10;
+      pointer-events: none;
+      display: none;
+      max-width: 260px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--popover);
+      color: var(--popover-foreground);
+      box-shadow: 0 4px 16px color-mix(in srgb, var(--foreground) 16%, transparent);
+    }
+    #ckp-metrics-viz .tooltip strong {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    #ckp-metrics-viz .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      white-space: nowrap;
+    }
+    #ckp-metrics-viz .tooltip-key {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #ckp-metrics-viz .tooltip-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--series-color);
+      display: inline-block;
+    }
+    @media (max-width: 680px) {
+      #ckp-metrics-viz .plot-grid {
+        grid-template-columns: 1fr;
+      }
+      #ckp-metrics-viz .plot {
+        min-height: 244px;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #ckp-metrics-viz .series-line,
+      #ckp-metrics-viz .series-dot {
+        transition: none;
+      }
+    }
+  &lt;/style&gt;
+
+  &lt;h2&gt;10K 训练：Checkpoint 指标轨迹&lt;/h2&gt;
+  &lt;div class=&quot;viz-subtitle text-small&quot;&gt;基线 step 0，加上每 250 step 保存的 9 个 checkpoint；悬停查看精确数值&lt;/div&gt;
+  &lt;div class=&quot;plot-grid&quot;&gt;
+    &lt;section class=&quot;plot-panel&quot; aria-labelledby=&quot;loss-heading&quot;&gt;
+      &lt;div class=&quot;plot-heading&quot;&gt;
+        &lt;h3 id=&quot;loss-heading&quot;&gt;Loss&lt;/h3&gt;
+        &lt;div class=&quot;legend&quot; data-legend=&quot;loss&quot;&gt;&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plot&quot; data-chart=&quot;loss&quot;&gt;&lt;/div&gt;
+    &lt;/section&gt;
+    &lt;section class=&quot;plot-panel&quot; aria-labelledby=&quot;accuracy-heading&quot;&gt;
+      &lt;div class=&quot;plot-heading&quot;&gt;
+        &lt;h3 id=&quot;accuracy-heading&quot;&gt;Token accuracy&lt;/h3&gt;
+        &lt;div class=&quot;legend&quot; data-legend=&quot;accuracy&quot;&gt;&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plot&quot; data-chart=&quot;accuracy&quot;&gt;&lt;/div&gt;
+    &lt;/section&gt;
+    &lt;section class=&quot;plot-panel&quot; aria-labelledby=&quot;grad-heading&quot;&gt;
+      &lt;div class=&quot;plot-heading&quot;&gt;
+        &lt;h3 id=&quot;grad-heading&quot;&gt;Gradient norm&lt;/h3&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plot&quot; data-chart=&quot;grad&quot;&gt;&lt;/div&gt;
+    &lt;/section&gt;
+    &lt;section class=&quot;plot-panel&quot; aria-labelledby=&quot;lr-heading&quot;&gt;
+      &lt;div class=&quot;plot-heading&quot;&gt;
+        &lt;h3 id=&quot;lr-heading&quot;&gt;Learning rate&lt;/h3&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plot&quot; data-chart=&quot;lr&quot;&gt;&lt;/div&gt;
+    &lt;/section&gt;
+  &lt;/div&gt;
+  &lt;section class=&quot;details&quot; aria-labelledby=&quot;checkpoint-table-heading&quot;&gt;
+    &lt;h3 id=&quot;checkpoint-table-heading&quot;&gt;Checkpoint 指标明细&lt;/h3&gt;
+    &lt;div class=&quot;table-responsive&quot;&gt;
+      &lt;table class=&quot;table table-sm&quot;&gt;
+        &lt;thead&gt;
+          &lt;tr&gt;
+            &lt;th class=&quot;text-end&quot;&gt;Step&lt;/th&gt;
+            &lt;th class=&quot;text-end&quot;&gt;Epoch&lt;/th&gt;
+            &lt;th class=&quot;text-end&quot;&gt;Train loss&lt;/th&gt;
+            &lt;th class=&quot;text-end&quot;&gt;Eval loss&lt;/th&gt;
+            &lt;th class=&quot;text-end&quot;&gt;Eval loss 改善&lt;/th&gt;
+            &lt;th class=&quot;text-end&quot;&gt;Train acc.&lt;/th&gt;
+            &lt;th class=&quot;text-end&quot;&gt;Eval acc.&lt;/th&gt;
+            &lt;th class=&quot;text-end&quot;&gt;Grad norm&lt;/th&gt;
+            &lt;th class=&quot;text-end&quot;&gt;LR ×10⁻⁶&lt;/th&gt;
+          &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody data-checkpoint-table&gt;&lt;/tbody&gt;
+      &lt;/table&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;details-note text-small&quot;&gt;Step 0 是训练前基线；Train loss/accuracy 与 gradient norm 是该 checkpoint step 的日志点，不是区间平均值。&lt;/div&gt;
+  &lt;/section&gt;
+  &lt;div class=&quot;tooltip text-small&quot; role=&quot;tooltip&quot; aria-hidden=&quot;true&quot;&gt;&lt;/div&gt;
+
+  &lt;script&gt;
+    (() =&gt; {
+      const root = document.getElementById(&#x27;ckp-metrics-viz&#x27;);
+      const tooltip = root.querySelector(&#x27;.tooltip&#x27;);
+      const NS = &#x27;http://www.w3.org/2000/svg&#x27;;
+      const rows = [
+        {step:0, epoch:0, trainLoss:null, evalLoss:0.4385322630, trainAcc:null, evalAcc:0.7371514741, grad:null, lr:null},
+        {step:250, epoch:0.1111, trainLoss:0.0183342099, evalLoss:0.0231594481, trainAcc:0.9832339791, evalAcc:0.9727231694, grad:3.078125, lr:9.8989344096},
+        {step:500, epoch:0.2222, trainLoss:0.0099371023, evalLoss:0.0171404071, trainAcc:0.9844846694, evalAcc:0.9792884840, grad:1.625, lr:9.2123983872},
+        {step:750, epoch:0.3333, trainLoss:0.0099114105, evalLoss:0.0131793823, trainAcc:0.9873417722, evalAcc:0.9817299604, grad:2.28125, lr:7.9632540291},
+        {step:1000, epoch:0.4444, trainLoss:0.0070356339, evalLoss:0.0103583643, trainAcc:0.9890029326, evalAcc:0.9858230237, grad:1.265625, lr:6.3183371765},
+        {step:1250, epoch:0.5556, trainLoss:0.0061789714, evalLoss:0.0097991759, trainAcc:0.9922279793, evalAcc:0.9861923227, grad:3.265625, lr:4.4973430831},
+        {step:1500, epoch:0.6667, trainLoss:0.0068261757, evalLoss:0.0089054508, trainAcc:0.9928166352, evalAcc:0.9873925443, grad:1.3046875, lr:2.7434838961},
+        {step:1750, epoch:0.7778, trainLoss:0.0062490955, evalLoss:0.0087286076, trainAcc:0.9921875, evalAcc:0.9877413266, grad:2.765625, lr:1.2910052181},
+        {step:2000, epoch:0.8889, trainLoss:0.0056891676, evalLoss:0.0086896149, trainAcc:0.9920243069, evalAcc:0.9877515849, grad:1.7265625, lr:0.3339002417},
+        {step:2250, epoch:1, trainLoss:0.0046763483, evalLoss:0.0086840680, trainAcc:0.9923747277, evalAcc:0.9877105517, grad:1.015625, lr:0}
+      ];
+      const configs = {
+        loss: {
+          yTitle: &#x27;Loss（log scale）&#x27;,
+          scale: &#x27;log&#x27;,
+          series: [
+            {key:&#x27;trainLoss&#x27;, label:&#x27;Train loss&#x27;, color:&#x27;--viz-series-1&#x27;, format:v =&gt; v.toFixed(5)},
+            {key:&#x27;evalLoss&#x27;, label:&#x27;Eval loss&#x27;, color:&#x27;--viz-series-2&#x27;, format:v =&gt; v.toFixed(5)}
+          ],
+          ticks: [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5],
+          tickFormat: v =&gt; v &lt; 0.01 ? v.toFixed(3) : String(v),
+          desc: &#x27;训练与验证 loss 随 checkpoint 下降；使用对数纵轴显示后期差异。&#x27;
+        },
+        accuracy: {
+          yTitle: &#x27;Token accuracy（%）&#x27;,
+          scale: &#x27;linear&#x27;,
+          series: [
+            {key:&#x27;trainAcc&#x27;, label:&#x27;Train accuracy&#x27;, color:&#x27;--viz-series-3&#x27;, format:v =&gt; `${(v * 100).toFixed(2)}%`},
+            {key:&#x27;evalAcc&#x27;, label:&#x27;Eval accuracy&#x27;, color:&#x27;--viz-series-4&#x27;, format:v =&gt; `${(v * 100).toFixed(2)}%`}
+          ],
+          ticks: [0.75, 0.80, 0.85, 0.90, 0.95, 1.00],
+          tickFormat: v =&gt; `${Math.round(v * 100)}%`,
+          desc: &#x27;训练与验证 token accuracy 随 checkpoint 上升并在 99% 附近趋稳。&#x27;
+        },
+        grad: {
+          yTitle: &#x27;Gradient norm&#x27;,
+          scale: &#x27;linear&#x27;,
+          series: [
+            {key:&#x27;grad&#x27;, label:&#x27;Gradient norm&#x27;, color:&#x27;--viz-series-5&#x27;, format:v =&gt; v.toFixed(3)}
+          ],
+          ticks: [1, 1.5, 2, 2.5, 3, 3.5],
+          tickFormat: v =&gt; v.toFixed(1),
+          desc: &#x27;各 checkpoint 记录时刻的梯度范数。&#x27;
+        },
+        lr: {
+          yTitle: &#x27;Learning rate（×10⁻⁶）&#x27;,
+          scale: &#x27;linear&#x27;,
+          series: [
+            {key:&#x27;lr&#x27;, label:&#x27;Learning rate&#x27;, color:&#x27;--viz-series-6&#x27;, format:v =&gt; `${v.toFixed(3)} ×10⁻⁶`}
+          ],
+          ticks: [0, 2.5, 5, 7.5, 10],
+          tickFormat: v =&gt; v.toFixed(1),
+          desc: &#x27;学习率从峰值逐步退火到 0。&#x27;
+        }
+      };
+      const visibility = new Map();
+      Object.values(configs).flatMap(c =&gt; c.series).forEach(s =&gt; visibility.set(s.key, true));
+
+      const tableBody = root.querySelector(&#x27;[data-checkpoint-table]&#x27;);
+      rows.forEach((row, index) =&gt; {
+        const previous = index &gt; 0 ? rows[index - 1].evalLoss : null;
+        const improvement = previous === null ? null : previous - row.evalLoss;
+        const cells = [
+          String(row.step),
+          row.epoch.toFixed(4),
+          row.trainLoss === null ? &#x27;—&#x27; : row.trainLoss.toFixed(6),
+          row.evalLoss.toFixed(6),
+          improvement === null ? &#x27;—&#x27; : improvement.toFixed(6),
+          row.trainAcc === null ? &#x27;—&#x27; : `${(row.trainAcc * 100).toFixed(2)}%`,
+          `${(row.evalAcc * 100).toFixed(2)}%`,
+          row.grad === null ? &#x27;—&#x27; : row.grad.toFixed(4),
+          row.lr === null ? &#x27;—&#x27; : row.lr.toFixed(4)
+        ];
+        const tr = document.createElement(&#x27;tr&#x27;);
+        cells.forEach(value =&gt; {
+          const td = document.createElement(&#x27;td&#x27;);
+          td.className = &#x27;text-end text-nowrap&#x27;;
+          td.textContent = value;
+          tr.appendChild(td);
+        });
+        tableBody.appendChild(tr);
+      });
+
+      const cssColor = token =&gt; `var(${token})`;
+      const extent = values =&gt; [Math.min(...values), Math.max(...values)];
+      const createSvg = (tag, attrs = {}) =&gt; {
+        const node = document.createElementNS(NS, tag);
+        Object.entries(attrs).forEach(([key, value]) =&gt; node.setAttribute(key, String(value)));
+        return node;
+      };
+      const addText = (parent, text, attrs = {}) =&gt; {
+        const node = createSvg(&#x27;text&#x27;, attrs);
+        node.textContent = text;
+        parent.appendChild(node);
+        return node;
+      };
+      const interpolateAt = (points, xValue) =&gt; {
+        if (!points.length) return null;
+        if (xValue &lt;= points[0].x) return points[0].y;
+        if (xValue &gt;= points[points.length - 1].x) return points[points.length - 1].y;
+        let leftIndex = 0;
+        while (leftIndex + 1 &lt; points.length &amp;&amp; points[leftIndex + 1].x &lt; xValue) leftIndex += 1;
+        const a = points[leftIndex];
+        const b = points[leftIndex + 1];
+        const t = (xValue - a.x) / (b.x - a.x);
+        return a.y + (b.y - a.y) * t;
+      };
+
+      function buildLegend(chartKey) {
+        const holder = root.querySelector(`[data-legend=&quot;${chartKey}&quot;]`);
+        if (!holder) return;
+        holder.innerHTML = &#x27;&#x27;;
+        configs[chartKey].series.forEach(series =&gt; {
+          const button = document.createElement(&#x27;button&#x27;);
+          button.type = &#x27;button&#x27;;
+          button.setAttribute(&#x27;aria-pressed&#x27;, String(visibility.get(series.key)));
+          button.innerHTML = `&lt;span class=&quot;legend-swatch&quot; style=&quot;--series-color:${cssColor(series.color)}&quot;&gt;&lt;/span&gt;&lt;span&gt;${series.label}&lt;/span&gt;`;
+          button.addEventListener(&#x27;click&#x27;, () =&gt; {
+            const next = !visibility.get(series.key);
+            visibility.set(series.key, next);
+            button.setAttribute(&#x27;aria-pressed&#x27;, String(next));
+            const panel = root.querySelector(`[data-chart=&quot;${chartKey}&quot;]`);
+            panel.querySelectorAll(`[data-series=&quot;${series.key}&quot;]`).forEach(node =&gt; node.classList.toggle(&#x27;series-hidden&#x27;, !next));
+          });
+          holder.appendChild(button);
+        });
+      }
+
+      function drawChart(chartKey) {
+        const config = configs[chartKey];
+        const container = root.querySelector(`[data-chart=&quot;${chartKey}&quot;]`);
+        container.innerHTML = &#x27;&#x27;;
+        const measured = Math.max(320, Math.floor(container.getBoundingClientRect().width));
+        const width = measured;
+        const height = measured &lt; 430 ? 244 : 270;
+        const margin = {top:14, right:24, bottom:48, left:68};
+        const innerW = width - margin.left - margin.right;
+        const innerH = height - margin.top - margin.bottom;
+        const allPoints = config.series.flatMap(series =&gt; rows
+          .filter(row =&gt; row[series.key] !== null)
+          .map(row =&gt; ({x:row.step, y:row[series.key]})));
+        const xExtent = extent(allPoints.map(d =&gt; d.x));
+        const xPad = Math.max(45, (xExtent[1] - xExtent[0]) * 0.02);
+        const xDomain = [xExtent[0] - xPad, xExtent[1] + xPad];
+        const x = value =&gt; margin.left + (value - xDomain[0]) / (xDomain[1] - xDomain[0]) * innerW;
+        const yValues = allPoints.map(d =&gt; d.y);
+        let yDomain;
+        let y;
+        if (config.scale === &#x27;log&#x27;) {
+          const [lo, hi] = extent(yValues.filter(v =&gt; v &gt; 0));
+          yDomain = [lo / 1.3, hi * 1.3];
+          const logLo = Math.log(yDomain[0]);
+          const logSpan = Math.log(yDomain[1]) - logLo;
+          y = value =&gt; margin.top + innerH - (Math.log(value) - logLo) / logSpan * innerH;
+        } else {
+          const [lo, hi] = extent(yValues);
+          const span = Math.max(hi - lo, Math.abs(hi) * 0.08, 0.01);
+          yDomain = [Math.max(0, lo - span * 0.1), hi + span * 0.12];
+          y = value =&gt; margin.top + innerH - (value - yDomain[0]) / (yDomain[1] - yDomain[0]) * innerH;
+        }
+
+        const svg = createSvg(&#x27;svg&#x27;, {
+          viewBox:`0 0 ${width} ${height}`,
+          role:&#x27;img&#x27;,
+          &#x27;aria-labelledby&#x27;:`${chartKey}-svg-title ${chartKey}-svg-desc`
+        });
+        container.appendChild(svg);
+        const title = createSvg(&#x27;title&#x27;, {id:`${chartKey}-svg-title`});
+        title.textContent = container.parentElement.querySelector(&#x27;h3&#x27;).textContent;
+        svg.appendChild(title);
+        const desc = createSvg(&#x27;desc&#x27;, {id:`${chartKey}-svg-desc`});
+        desc.textContent = config.desc;
+        svg.appendChild(desc);
+        svg.appendChild(createSvg(&#x27;rect&#x27;, {
+          class:&#x27;chart-frame&#x27;,
+          &#x27;data-chart-frame&#x27;:&#x27;&#x27;,
+          x:margin.left,
+          y:margin.top,
+          width:innerW,
+          height:innerH,
+          fill:&#x27;none&#x27;
+        }));
+
+        const narrow = width &lt; 430;
+        const xTicks = narrow ? [0, 750, 1500, 2250] : [0, 500, 1000, 1500, 2000];
+        config.ticks.filter(tick =&gt; tick &gt;= yDomain[0] &amp;&amp; tick &lt;= yDomain[1]).forEach(tick =&gt; {
+          const py = y(tick);
+          svg.appendChild(createSvg(&#x27;line&#x27;, {class:&#x27;grid-line&#x27;, x1:margin.left, x2:margin.left + innerW, y1:py, y2:py, stroke:&#x27;var(--border)&#x27;, &#x27;stroke-opacity&#x27;:&#x27;0.55&#x27;}));
+          svg.appendChild(createSvg(&#x27;line&#x27;, {class:&#x27;axis-line&#x27;, x1:margin.left - 5, x2:margin.left, y1:py, y2:py, stroke:&#x27;var(--border)&#x27;}));
+          addText(svg, config.tickFormat(tick), {class:&#x27;axis-label&#x27;, x:margin.left - 9, y:py + 4, &#x27;text-anchor&#x27;:&#x27;end&#x27;, fill:&#x27;var(--foreground)&#x27;, &#x27;font-size&#x27;:&#x27;12&#x27;});
+        });
+        xTicks.forEach(tick =&gt; {
+          const px = x(tick);
+          svg.appendChild(createSvg(&#x27;line&#x27;, {class:&#x27;axis-line&#x27;, x1:px, x2:px, y1:margin.top + innerH, y2:margin.top + innerH + 5, stroke:&#x27;var(--border)&#x27;}));
+          addText(svg, String(tick), {class:&#x27;axis-label&#x27;, x:px, y:margin.top + innerH + 19, &#x27;text-anchor&#x27;:&#x27;middle&#x27;, fill:&#x27;var(--foreground)&#x27;, &#x27;font-size&#x27;:&#x27;12&#x27;});
+        });
+        addText(svg, &#x27;Training step&#x27;, {class:&#x27;axis-title&#x27;, &#x27;data-axis&#x27;:&#x27;x&#x27;, x:margin.left + innerW / 2, y:height - 8, &#x27;text-anchor&#x27;:&#x27;middle&#x27;});
+        addText(svg, config.yTitle, {class:&#x27;axis-title&#x27;, &#x27;data-axis&#x27;:&#x27;y&#x27;, transform:`translate(15,${margin.top + innerH / 2}) rotate(-90)`, &#x27;text-anchor&#x27;:&#x27;middle&#x27;});
+
+        const pointsBySeries = new Map();
+        config.series.forEach(series =&gt; {
+          const points = rows.filter(row =&gt; row[series.key] !== null).map(row =&gt; ({x:row.step, y:row[series.key]}));
+          pointsBySeries.set(series.key, points);
+          const pathData = points.map((point, index) =&gt; `${index ? &#x27;L&#x27; : &#x27;M&#x27;} ${x(point.x).toFixed(2)} ${y(point.y).toFixed(2)}`).join(&#x27; &#x27;);
+          svg.appendChild(createSvg(&#x27;path&#x27;, {
+            class:`series-line${visibility.get(series.key) ? &#x27;&#x27; : &#x27; series-hidden&#x27;}`,
+            &#x27;data-series&#x27;:series.key,
+            stroke:cssColor(series.color),
+            d:pathData
+          }));
+          points.forEach(point =&gt; svg.appendChild(createSvg(&#x27;circle&#x27;, {
+            class:`series-dot${visibility.get(series.key) ? &#x27;&#x27; : &#x27; series-hidden&#x27;}`,
+            &#x27;data-series&#x27;:series.key,
+            cx:x(point.x),
+            cy:y(point.y),
+            r:3.8,
+            fill:cssColor(series.color)
+          })));
+        });
+
+        const guide = createSvg(&#x27;line&#x27;, {class:&#x27;hover-guide&#x27;, &#x27;data-chart-hover-guide&#x27;:&#x27;&#x27;, y1:margin.top, y2:margin.top + innerH});
+        guide.style.display = &#x27;none&#x27;;
+        svg.appendChild(guide);
+        const markerLayer = createSvg(&#x27;g&#x27;, {&#x27;pointer-events&#x27;:&#x27;none&#x27;});
+        svg.appendChild(markerLayer);
+        const overlay = createSvg(&#x27;rect&#x27;, {
+          &#x27;data-chart-hit&#x27;:&#x27;&#x27;,
+          &#x27;data-chart-hover-overlay&#x27;:&#x27;cross-series&#x27;,
+          x:margin.left,
+          y:margin.top,
+          width:innerW,
+          height:innerH,
+          fill:&#x27;transparent&#x27;,
+          &#x27;pointer-events&#x27;:&#x27;all&#x27;
+        });
+        svg.appendChild(overlay);
+
+        overlay.addEventListener(&#x27;pointermove&#x27;, event =&gt; {
+          const bounds = svg.getBoundingClientRect();
+          const svgX = (event.clientX - bounds.left) / bounds.width * width;
+          const rawX = xDomain[0] + (svgX - margin.left) / innerW * (xDomain[1] - xDomain[0]);
+          const xValue = Math.max(xExtent[0], Math.min(xExtent[1], rawX));
+          guide.setAttribute(&#x27;x1&#x27;, x(xValue));
+          guide.setAttribute(&#x27;x2&#x27;, x(xValue));
+          guide.style.display = &#x27;&#x27;;
+          markerLayer.replaceChildren();
+          const visible = config.series.filter(series =&gt; visibility.get(series.key));
+          const tooltipRows = [];
+          visible.forEach(series =&gt; {
+            const value = interpolateAt(pointsBySeries.get(series.key), xValue);
+            if (value === null) return;
+            markerLayer.appendChild(createSvg(&#x27;circle&#x27;, {
+              class:&#x27;hover-marker&#x27;,
+              &#x27;data-chart-hover-marker&#x27;:&#x27;&#x27;,
+              cx:x(xValue),
+              cy:y(value),
+              r:4.5,
+              fill:cssColor(series.color)
+            }));
+            tooltipRows.push(`&lt;div class=&quot;tooltip-row&quot;&gt;&lt;span class=&quot;tooltip-key&quot;&gt;&lt;span class=&quot;tooltip-dot&quot; style=&quot;--series-color:${cssColor(series.color)}&quot;&gt;&lt;/span&gt;${series.label}&lt;/span&gt;&lt;span&gt;${series.format(value)}&lt;/span&gt;&lt;/div&gt;`);
+          });
+          tooltip.innerHTML = `&lt;strong&gt;Step ${Math.round(xValue)}&lt;/strong&gt;${tooltipRows.join(&#x27;&#x27;)}`;
+          tooltip.style.display = &#x27;block&#x27;;
+          tooltip.setAttribute(&#x27;aria-hidden&#x27;, &#x27;false&#x27;);
+          const rootRect = root.getBoundingClientRect();
+          const svgRect = svg.getBoundingClientRect();
+          const desiredLeft = svgRect.left - rootRect.left + x(xValue) + 12;
+          const maxLeft = Math.max(4, rootRect.width - tooltip.offsetWidth - 4);
+          tooltip.style.left = `${Math.max(4, Math.min(desiredLeft, maxLeft))}px`;
+          const desiredTop = svgRect.top - rootRect.top + margin.top + Math.min(innerH - 20, 24);
+          tooltip.style.top = `${Math.max(4, desiredTop)}px`;
+        });
+        overlay.addEventListener(&#x27;pointerleave&#x27;, () =&gt; {
+          guide.style.display = &#x27;none&#x27;;
+          markerLayer.replaceChildren();
+          tooltip.style.display = &#x27;none&#x27;;
+          tooltip.setAttribute(&#x27;aria-hidden&#x27;, &#x27;true&#x27;);
+        });
+      }
+
+      Object.keys(configs).forEach(buildLegend);
+      const redrawAll = () =&gt; Object.keys(configs).forEach(drawChart);
+      redrawAll();
+      const observer = new ResizeObserver(entries =&gt; {
+        if (!entries.length) return;
+        window.clearTimeout(root.__resizeTimer);
+        root.__resizeTimer = window.setTimeout(redrawAll, 80);
+      });
+      root.querySelectorAll(&#x27;.plot&#x27;).forEach(plot =&gt; observer.observe(plot));
+    })();
+  &lt;/script&gt;
+&lt;/div&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handleLeave = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>
