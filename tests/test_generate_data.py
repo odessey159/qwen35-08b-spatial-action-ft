@@ -164,6 +164,44 @@ class GenerateDataPersistenceTests(unittest.TestCase):
             self.assertEqual([row["sample_id"] for row in rows], ["exp0_0001", "exp0_0002"])
             self.assertEqual(generator.committed_count, 2)
 
+    def test_report_interval_keeps_per_commit_checkpoint_and_refreshes_on_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = Path(raw_root)
+            config = _config()
+            config["generation"]["report_interval_samples"] = 3
+            generator = _generator(root, config=config)
+
+            _commit(generator, _row(1, "scene_a"))
+            first_report = json.loads(generator.report_path.read_text(encoding="utf-8"))
+            self.assertEqual(first_report["sample_count"], 1)
+
+            _commit(generator, _row(2, "scene_b"))
+            stale_report = json.loads(generator.report_path.read_text(encoding="utf-8"))
+            checkpoint = json.loads(generator.checkpoint_path.read_text(encoding="utf-8"))
+            self.assertEqual(stale_report["sample_count"], 1)
+            self.assertEqual(checkpoint["committed_count"], 2)
+
+            _commit(generator, _row(3, "scene_c"))
+            refreshed_report = json.loads(generator.report_path.read_text(encoding="utf-8"))
+            self.assertEqual(refreshed_report["sample_count"], 3)
+
+    def test_finalize_refreshes_a_stale_periodic_report(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = Path(raw_root)
+            config = _config()
+            config["generation"]["report_interval_samples"] = 100
+            generator = _generator(root, config=config)
+
+            _commit(generator, _row(1, "scene_a"))
+            _commit(generator, _row(2, "scene_b"))
+            stale_report = json.loads(generator.report_path.read_text(encoding="utf-8"))
+            self.assertEqual(stale_report["sample_count"], 1)
+
+            generator.finalize(complete=True)
+            final_report = json.loads(generator.report_path.read_text(encoding="utf-8"))
+            self.assertTrue(final_report["complete"])
+            self.assertEqual(final_report["sample_count"], 2)
+
     def test_incomplete_finalize_keeps_partial_jsonl(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = Path(raw_root)

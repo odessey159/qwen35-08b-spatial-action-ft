@@ -121,6 +121,37 @@ adapter 只生成内部 `CotSample`，之后仍复用同一套 `_swift_row()` ms
   --config training/config.cot.pilot5000.server.json train
 ```
 
+### 69,879 条原始数据中的 10,000 条训练
+
+`config.cot.10k.server.json` 复用已成功的 500 条 full-CoT 全参数配置。它按固定 seed 从 8 个
+generation shard 中精确选择 10,000 条，并且以完整 scene 为选择单位；随后仍按 scene 和
+counterfactual group 做 90/10 train/val 切分。训练跑 1 个 epoch，step 0 先执行一次 val，
+之后每 250 optimizer steps 做一次 val 并保存 checkpoint，最多保留 10 个 checkpoint。
+
+```bash
+.venv-train/bin/python -m training.select_raw_subset \
+  --shard-root exp0/new100k_shard_data \
+  --shards 8 \
+  --output-dir exp0/new100k_10k_data \
+  --count 10000 \
+  --seed 42 \
+  --overwrite
+.venv-train/bin/python -m training.cli \
+  --config training/config.cot.10k.server.json prepare --overwrite
+.venv-train/bin/python -m training.cli \
+  --config training/config.cot.10k.server.json validate
+.venv-train/bin/python -m training.cli \
+  --config training/config.cot.10k.server.json train
+```
+
+需要后台运行并保留统一日志时，使用：
+
+```bash
+nohup bash training/run_cot10k_server.sh \
+  > run_logs/cot10k_train.log 2>&1 < /dev/null &
+echo $! > run_logs/cot10k_train.pid
+```
+
 ## 服务器使用顺序
 
 先将本仓库同步到 `/root/qwen35-08b-spatial-action-ft`。安装脚本会复用服务器

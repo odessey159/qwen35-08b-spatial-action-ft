@@ -11,6 +11,7 @@ venv/
 
 # Local runtime artifacts
 *.log
+*.codex_sync_part
 .pytest_cache/
 .mypy_cache/
 

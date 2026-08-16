@@ -12,6 +12,24 @@ from training.launcher import build_swift_command
 
 
 class CotTrainingTests(unittest.TestCase):
+    def test_10k_config_evaluates_before_training_and_keeps_checkpoints(self) -> None:
+        repository = Path(__file__).resolve().parents[1]
+        config, base_dir = load_config(
+            repository / "training" / "config.cot.10k.server.json"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            fake_swift = Path(temporary) / "swift"
+            fake_swift.write_text("", encoding="utf-8")
+            config["server"]["swift_executable"] = str(fake_swift)
+            command = build_swift_command(config, base_dir)
+        self.assertIn("--eval_on_start", command)
+        self.assertEqual(command[command.index("--eval_on_start") + 1], "true")
+        self.assertNotIn("--max_steps", command)
+        self.assertEqual(command[command.index("--num_train_epochs") + 1], "1.0")
+        self.assertEqual(command[command.index("--eval_steps") + 1], "250")
+        self.assertEqual(command[command.index("--save_steps") + 1], "250")
+        self.assertEqual(command[command.index("--save_total_limit") + 1], "10")
+
     def test_three_experiments_prepare_and_validate(self) -> None:
         repository = Path(__file__).resolve().parents[1]
         training_dir = repository / "training"

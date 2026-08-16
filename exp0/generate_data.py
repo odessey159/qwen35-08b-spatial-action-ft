@@ -341,6 +341,11 @@ class ThorDataGenerator:
         self.resume_scene_index = 0
         self.scenes_exhausted = False
         self.resumed = False
+        self.report_interval_samples = int(
+            self.generation_config.get("report_interval_samples", 1)
+        )
+        if self.report_interval_samples < 1:
+            raise ValueError("generation.report_interval_samples must be >= 1")
 
         if overwrite:
             self._reset_output()
@@ -686,6 +691,15 @@ class ThorDataGenerator:
             },
         )
 
+    def report_update_due(self, appended_count: int) -> bool:
+        if not self.report_path.exists():
+            return True
+        previous_count = max(0, self.committed_count - appended_count)
+        return (
+            previous_count // self.report_interval_samples
+            != self.committed_count // self.report_interval_samples
+        )
+
     def commit_rows(self, rows: list[dict[str, Any]]) -> None:
         if not rows:
             return
@@ -696,7 +710,8 @@ class ThorDataGenerator:
             flush=True,
         )
         self.write_checkpoint(complete=False)
-        self.write_report(complete=False)
+        if self.report_update_due(len(rows)):
+            self.write_report(complete=False)
 
     def rollback_saved_rows(
         self,

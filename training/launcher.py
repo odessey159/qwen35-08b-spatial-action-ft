@@ -89,7 +89,22 @@ def build_swift_command(config: dict[str, Any], base_dir: Path) -> list[str]:
     if weighted_sections:
         _option(command, "is_binary_loss_scale", "false")
     _option(command, "torch_dtype", training.get("torch_dtype", "bfloat16"))
-    _option(command, "max_steps", int(training.get("max_steps", 300)))
+    max_steps = training.get("max_steps", 300)
+    num_train_epochs = training.get("num_train_epochs")
+    if max_steps is None and num_train_epochs is None:
+        raise TrainingConfigError("Set training.max_steps or training.num_train_epochs")
+    if max_steps is not None and num_train_epochs is not None:
+        raise TrainingConfigError(
+            "Set only one of training.max_steps and training.num_train_epochs"
+        )
+    if max_steps is not None:
+        if isinstance(max_steps, bool) or int(max_steps) <= 0:
+            raise TrainingConfigError("training.max_steps must be a positive integer")
+        _option(command, "max_steps", int(max_steps))
+    else:
+        if isinstance(num_train_epochs, bool) or float(num_train_epochs) <= 0:
+            raise TrainingConfigError("training.num_train_epochs must be positive")
+        _option(command, "num_train_epochs", float(num_train_epochs))
     _option(command, "per_device_train_batch_size", int(training.get("per_device_train_batch_size", 4)))
     _option(command, "per_device_eval_batch_size", int(training.get("per_device_eval_batch_size", 4)))
     _option(command, "gradient_accumulation_steps", int(training.get("gradient_accumulation_steps", 1)))
@@ -113,6 +128,7 @@ def build_swift_command(config: dict[str, Any], base_dir: Path) -> list[str]:
         "gradient_checkpointing": training.get("gradient_checkpointing", True),
         "max_length": int(training.get("max_length", 2048)),
         "warmup_ratio": training.get("warmup_ratio", 0.05),
+        "eval_on_start": training.get("eval_on_start", False),
         "eval_steps": int(training.get("eval_steps", 50)),
         "save_steps": int(training.get("save_steps", 50)),
         "save_total_limit": int(training.get("save_total_limit", 2)),

@@ -1,0 +1,6 @@
+state=finished
+exit_code=1
+started_at=2026-08-15T15:51:31+00:00
+finished_at=2026-08-16T01:50:02+00:00
+workers=8
+target_samples=100000
