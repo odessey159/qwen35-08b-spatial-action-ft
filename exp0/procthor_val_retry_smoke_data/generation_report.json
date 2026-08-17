@@ -1,0 +1,32 @@
+{
+  "seed": 2042,
+  "source": "procthor",
+  "sample_count": 4,
+  "scene_count": 2,
+  "group_counts": {
+    "open_close": 1,
+    "pickup": 1,
+    "counterfactual_put": 2
+  },
+  "scene_counts": {
+    "procthor_val_00392": 2,
+    "procthor_val_00074": 2
+  },
+  "counterfactual_ratio": 0.5,
+  "rejections": {
+    "no_feasible_candidate": 16,
+    "insufficient_visible_objects": 8
+  },
+  "complete": true,
+  "resumed": false,
+  "expected_sample_count": 4,
+  "instruction_collision": 0,
+  "action_distribution": {
+    "OpenObject": 2,
+    "PickupObject": 1
+  },
+  "goto_schema": {
+    "parent_location": 1,
+    "object_location": 1
+  }
+}
