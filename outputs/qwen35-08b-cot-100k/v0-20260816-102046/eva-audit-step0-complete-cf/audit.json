@@ -1,0 +1,100 @@
+{
+  "split_audit": {
+    "sample_count": 99489,
+    "manifest_train_count": 89538,
+    "manifest_validation_count": 9951,
+    "missing_manifest_ids": [],
+    "unassigned_raw_ids": [],
+    "split_group_fields": [
+      "scene_id",
+      "counterfactual_group"
+    ],
+    "component_count": 7595,
+    "largest_component_size": 47,
+    "largest_component_ratio": 0.0004724140357225422,
+    "component_size_p95": 24,
+    "cross_split_component_count": 0,
+    "cross_split_component_examples": [],
+    "merge_split_valid": true,
+    "train_scene_count": 6843,
+    "validation_scene_count": 752,
+    "scene_overlap_count": 0,
+    "scene_overlap": [],
+    "scene_disjoint": true,
+    "counterfactual_group_overlap_count": 0,
+    "counterfactual_group_overlap": [],
+    "counterfactual_groups": 18265,
+    "incomplete_counterfactual_groups": {},
+    "unnamespaced_counterfactual_groups": [],
+    "counterfactual_namespace_safe": true
+  },
+  "text_oracle": {
+    "filter": "sim_verified == true and target_visible != false",
+    "filtered_validation_count": 9951,
+    "text_deterministic_count": 2559,
+    "filtered_text_deterministic_rate": 0.25716008441362675,
+    "train_text_oracle_coverage": 0.9995980303487086,
+    "train_text_oracle_accuracy": 0.6253642849964828,
+    "train_text_oracle_accuracy_on_covered": 0.625615763546798,
+    "validation_text_bayes_oracle_accuracy": 0.6291829966837503,
+    "visual_lift_headroom_vs_train_oracle": 0.3746357150035172,
+    "irreducible_visual_ambiguity_rate": 0.37081700331624967,
+    "definition": "The train-fitted text oracle predicts the most frequent training action sequence for each exact normalized instruction. The validation Bayes oracle uses the best possible per-instruction majority on validation and is an analysis upper bound, not a deployable score."
+  },
+  "base_structure": {
+    "status": "available",
+    "required": false,
+    "prediction_path": "outputs/qwen35-08b-cot-100k/v0-20260816-102046/gpu-generation/cf-all-step0.jsonl",
+    "scope": "current_100k_validation_cf_pairs_step0",
+    "structure_contract": "state_plan_action",
+    "prediction_count": 3720,
+    "conditions": {
+      "all": {
+        "count": 3720,
+        "strict_structure_valid": 0.0,
+        "placeholder_copy_rate": 0.0
+      }
+    }
+  },
+  "format_only_structure": {
+    "status": "missing",
+    "required": true,
+    "expected_count": 9951
+  },
+  "full_cot_structure": {
+    "status": "partial",
+    "required": true,
+    "prediction_path": "outputs/qwen35-08b-cot-100k/v0-20260816-102046/gpu-generation/cf-all-step0.jsonl",
+    "scope": "current_100k_validation_cf_pairs_step0",
+    "structure_contract": "state_plan_action",
+    "prediction_count": 3720,
+    "conditions": {
+      "all": {
+        "count": 3720,
+        "strict_structure_valid": 0.0,
+        "placeholder_copy_rate": 0.0
+      }
+    },
+    "expected_count": 9951,
+    "coverage": 0.37383177570093457
+  },
+  "counterfactual_pairs": {
+    "status": "available",
+    "required": false,
+    "prediction_path": "outputs/qwen35-08b-cot-100k/v0-20260816-102046/gpu-generation/cf-all-step0.jsonl",
+    "validation_cf_groups": 1860,
+    "complete_validation_cf_pairs": 1860,
+    "evaluated_pairs": 1860,
+    "pair_coverage": 1.0,
+    "pair_exact_accuracy": 0.0,
+    "sample_exact_accuracy": 0.0,
+    "one_member_correct_pairs": 0,
+    "one_member_correct_rate": 0.0,
+    "zero_members_correct_pairs": 1860,
+    "zero_members_correct_rate": 1.0,
+    "same_plan_rate": 0.6978494623655914,
+    "same_action_sequence_rate": 1.0,
+    "gold_discriminative_pairs": 1860,
+    "definition": "A pair is correct only when both counterfactual members have exact primitive action sequences."
+  }
+}

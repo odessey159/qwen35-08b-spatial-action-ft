@@ -12,7 +12,11 @@ from training.audit_eva import (
     structure_audit,
     text_oracle_audit,
 )
-from training.generate_cpu_predictions import select_all_rows, select_counterfactual_rows
+from training.generate_cpu_predictions import (
+    build_a_prime_images,
+    select_all_rows,
+    select_counterfactual_rows,
+)
 
 
 def row(sample_id: str, scene: str, group: str | None, instruction: str, actions: list[str]):
@@ -133,6 +137,27 @@ class AuditEvaTests(unittest.TestCase):
         manifest = {"validation_sample_ids": ["a", "b"]}
         selected = select_all_rows(prepared, raw, manifest, max_samples=1)
         self.assertEqual(selected, [(0, "a", "cf-1", prepared[0])])
+
+    def test_a_prime_uses_cf_partner_and_other_scene_fallback(self) -> None:
+        raw = [
+            {**row("a", "s1", "cf-1", "put", ["PickupObject(Cup)"]), "image": "a.png"},
+            {**row("b", "s1", "cf-1", "put", ["OpenObject(Drawer)"]), "image": "b.png"},
+            {**row("c", "s2", None, "open", ["OpenObject(Box)"]), "image": "c.png", "wrong_image": ""},
+            {**row("d", "s3", None, "clean", ["CleanObject(Plate)"]), "image": "d.png", "wrong_image": "persisted.png"},
+        ]
+        prepared = [{"row": value} for value in ("a", "b", "c", "d")]
+        selected = [
+            (index, str(raw[index]["sample_id"]), str(raw[index]["meta"].get("counterfactual_group") or ""), prepared[index])
+            for index in range(4)
+        ]
+        images = build_a_prime_images(selected, raw)
+        self.assertEqual(images["a"]["image"], "b.png")
+        self.assertEqual(images["b"]["image"], "a.png")
+        self.assertEqual(images["a"]["image_source"], "counterfactual_partner")
+        self.assertNotIn(images["c"]["image"], {"c.png"})
+        self.assertEqual(images["c"]["image_source"], "different_scene_fallback")
+        self.assertEqual(images["d"]["image"], "persisted.png")
+        self.assertEqual(images["d"]["image_source"], "raw_wrong_image")
 
 
 if __name__ == "__main__":

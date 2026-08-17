@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import time
 from collections import defaultdict
@@ -67,6 +68,86 @@ def select_all_rows(
     return selected[:max_samples] if max_samples > 0 else selected
 
 
+def build_a_prime_images(
+    selected: list[tuple[int, str, str, dict[str, Any]]],
+    raw_rows: list[dict[str, Any]],
+) -> dict[str, dict[str, str]]:
+    """Choose controlled wrong images without mutating the source dataset.
+
+    Complete counterfactual pairs use the other member's image. Non-CF rows use
+    their persisted ``wrong_image`` when available; otherwise a stable hash picks
+    an image from a different validation scene. The fallback is deterministic so
+    an A-prime run is exactly reproducible even though the 100K cleaned dataset
+    currently has no populated ``wrong_image`` values.
+    """
+
+    raw_by_id = {str(row.get("sample_id")): row for row in raw_rows}
+    selected_ids = [sample_id for _, sample_id, _, _ in selected]
+    selected_raw: list[dict[str, Any]] = []
+    for sample_id in selected_ids:
+        raw = raw_by_id.get(sample_id)
+        if raw is None:
+            raise ValueError(f"Raw selected sample is missing: {sample_id}")
+        selected_raw.append(raw)
+
+    groups: dict[str, list[str]] = defaultdict(list)
+    for _, sample_id, group, _ in selected:
+        if group:
+            groups[group].append(sample_id)
+    incomplete = {group: len(ids) for group, ids in groups.items() if len(ids) != 2}
+    if incomplete:
+        preview = dict(list(sorted(incomplete.items()))[:10])
+        raise ValueError(f"A-prime requires complete selected CF pairs: {preview}")
+
+    images_by_scene: dict[str, list[str]] = defaultdict(list)
+    for raw in selected_raw:
+        scene = str(_metadata(raw).get("scene_id", ""))
+        image = str(raw.get("image", "")).strip()
+        if not scene or not image:
+            raise ValueError(f"{raw.get('sample_id')}: scene_id and image are required")
+        images_by_scene[scene].append(image)
+    scenes = sorted(images_by_scene)
+    if len(scenes) < 2:
+        raise ValueError("A-prime different-scene fallback needs at least two scenes")
+    scene_index = {scene: index for index, scene in enumerate(scenes)}
+
+    result: dict[str, dict[str, str]] = {}
+    for _, sample_id, group, _ in selected:
+        raw = raw_by_id[sample_id]
+        original_image = str(raw.get("image", "")).strip()
+        if group:
+            partner_id = next(value for value in groups[group] if value != sample_id)
+            replacement = str(raw_by_id[partner_id].get("image", "")).strip()
+            source = "counterfactual_partner"
+            source_sample_id = partner_id
+        else:
+            persisted = str(raw.get("wrong_image", "")).strip()
+            if persisted:
+                replacement = persisted
+                source = "raw_wrong_image"
+                source_sample_id = ""
+            else:
+                scene = str(_metadata(raw).get("scene_id", ""))
+                digest = hashlib.sha256(sample_id.encode("utf-8")).digest()
+                offset = 1 + int.from_bytes(digest[:8], "big") % (len(scenes) - 1)
+                replacement_scene = scenes[(scene_index[scene] + offset) % len(scenes)]
+                scene_images = images_by_scene[replacement_scene]
+                replacement = scene_images[
+                    int.from_bytes(digest[8:16], "big") % len(scene_images)
+                ]
+                source = "different_scene_fallback"
+                source_sample_id = ""
+        if not replacement or replacement == original_image:
+            raise ValueError(f"{sample_id}: A-prime image did not change")
+        result[sample_id] = {
+            "image": replacement,
+            "image_source": source,
+            "image_source_sample_id": source_sample_id,
+            "original_image": original_image,
+        }
+    return result
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate full-CoT predictions for validation rows"
@@ -79,6 +160,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project-root", type=Path, default=Path.cwd())
     parser.add_argument(
         "--selection", choices=["counterfactual-pairs", "all"], default="counterfactual-pairs"
+    )
+    parser.add_argument(
+        "--image-mode",
+        choices=["correct", "a-prime"],
+        default="correct",
+        help="Use the gold image or the controlled A-prime replacement image.",
     )
     parser.add_argument("--max-pairs", type=int, default=1)
     parser.add_argument("--max-samples", type=int, default=0)
@@ -156,6 +243,9 @@ def main() -> None:
         selected = select_all_rows(
             prepared_rows, raw_rows, manifest, args.max_samples
         )
+    a_prime_images = (
+        build_a_prime_images(selected, raw_rows) if args.image_mode == "a-prime" else {}
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8", newline="\n") as handle:
         for batch_start in range(0, len(selected), args.batch_size):
@@ -163,8 +253,12 @@ def main() -> None:
             started = time.monotonic()
             prompts: list[str] = []
             images: list[Any] = []
-            for _, _, _, row in batch:
-                messages, image_path = localize_row(row, project_root)
+            for _, sample_id, _, row in batch:
+                model_row = row
+                if args.image_mode == "a-prime":
+                    model_row = dict(row)
+                    model_row["images"] = [a_prime_images[sample_id]["image"]]
+                messages, image_path = localize_row(model_row, project_root)
                 prompts.append(
                     processor.apply_chat_template(
                         messages[:2],
@@ -211,7 +305,10 @@ def main() -> None:
                     "dtype": args.dtype,
                     "batch_size": len(batch),
                     "seconds": elapsed / len(batch),
+                    "image_mode": args.image_mode,
                 }
+                if args.image_mode == "a-prime":
+                    result.update(a_prime_images[sample_id])
                 handle.write(json.dumps(result, ensure_ascii=False) + "\n")
             handle.flush()
             print(

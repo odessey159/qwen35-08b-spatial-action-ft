@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from training.compare_counterfactual_predictions import (
+    clustered_bootstrap_interval,
     compare,
     mcnemar_exact_p,
     paired_difference,
@@ -17,6 +18,7 @@ def raw_row(sample_id: str, group: str, state: str, actions: list[str]) -> dict:
         "meta": {
             "counterfactual_group": group,
             "receptacle_state": state,
+            "scene_id": group,
         },
     }
 
@@ -40,6 +42,12 @@ class CompareCounterfactualPredictionsTest(unittest.TestCase):
         result = paired_difference([False, False, True], [True, True, True])
         self.assertEqual(result["candidate_only_correct"], 2)
         self.assertAlmostEqual(result["accuracy_delta"], 2 / 3)
+        clustered = clustered_bootstrap_interval(
+            [True, False, True, True], ["s1", "s1", "s2", "s2"], resamples=100
+        )
+        self.assertEqual(len(clustered), 2)
+        self.assertLessEqual(clustered[0], 0.75)
+        self.assertGreaterEqual(clustered[1], 0.75)
 
     def test_compare_reports_paired_and_state_metrics(self) -> None:
         raw = [

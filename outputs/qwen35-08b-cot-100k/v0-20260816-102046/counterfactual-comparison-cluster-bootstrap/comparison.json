@@ -1,0 +1,199 @@
+{
+  "scope": {
+    "validation_samples": 9951,
+    "complete_counterfactual_pairs": 1860,
+    "counterfactual_samples": 3720,
+    "counterfactual_scenes": 600,
+    "gold_discriminative_pairs": 1860,
+    "same_instruction_pairs": 1860,
+    "same_scene_pairs": 1860,
+    "open_closed_state_pairs": 1860,
+    "distinct_image_hash_pairs": 1860
+  },
+  "models": {
+    "step0": {
+      "samples": 3720,
+      "pairs": 1860,
+      "sample_exact_accuracy": 0.0,
+      "sample_exact_ci95": [
+        0.0,
+        0.0
+      ],
+      "pair_exact_accuracy": 0.0,
+      "pair_exact_ci95": [
+        0.0,
+        0.0
+      ],
+      "ci_method": "scene_cluster_percentile_bootstrap",
+      "bootstrap_resamples": 1000,
+      "pair_member_outcomes": {
+        "both_correct": 0,
+        "one_member_correct": 0,
+        "zero_members_correct": 1860
+      },
+      "strict_action_structure_valid_rate": 0.0,
+      "same_action_sequence_rate": 1.0,
+      "error_counts": {
+        "empty_or_unparseable": 3720
+      },
+      "by_receptacle_state": {
+        "closed": {
+          "count": 1860,
+          "exact_accuracy": 0.0
+        },
+        "open": {
+          "count": 1860,
+          "exact_accuracy": 0.0
+        }
+      },
+      "by_target_object": {
+        "Cabinet": {
+          "count": 52,
+          "exact_accuracy": 0.0
+        },
+        "Drawer": {
+          "count": 2772,
+          "exact_accuracy": 0.0
+        },
+        "Fridge": {
+          "count": 752,
+          "exact_accuracy": 0.0
+        },
+        "Microwave": {
+          "count": 68,
+          "exact_accuracy": 0.0
+        },
+        "Safe": {
+          "count": 76,
+          "exact_accuracy": 0.0
+        }
+      },
+      "generation": {
+        "mean_generated_tokens": 256.0,
+        "mean_seconds_per_sample": 0.5603350224056011
+      }
+    },
+    "step11193": {
+      "samples": 3720,
+      "pairs": 1860,
+      "sample_exact_accuracy": 0.8709677419354839,
+      "sample_exact_ci95": [
+        0.8551167214752705,
+        0.8854925541405384
+      ],
+      "pair_exact_accuracy": 0.7924731182795699,
+      "pair_exact_ci95": [
+        0.767288905843485,
+        0.8144893578733401
+      ],
+      "ci_method": "scene_cluster_percentile_bootstrap",
+      "bootstrap_resamples": 1000,
+      "pair_member_outcomes": {
+        "both_correct": 1474,
+        "one_member_correct": 292,
+        "zero_members_correct": 94
+      },
+      "strict_action_structure_valid_rate": 1.0,
+      "same_action_sequence_rate": 0.14838709677419354,
+      "error_counts": {
+        "exact": 3240,
+        "redundant_open_for_open": 215,
+        "navigation_or_target_error": 188,
+        "missing_open_for_closed": 76,
+        "other_action_error": 1
+      },
+      "by_receptacle_state": {
+        "closed": {
+          "count": 1860,
+          "exact_accuracy": 0.910752688172043
+        },
+        "open": {
+          "count": 1860,
+          "exact_accuracy": 0.8311827956989247
+        }
+      },
+      "by_target_object": {
+        "Cabinet": {
+          "count": 52,
+          "exact_accuracy": 0.9038461538461539
+        },
+        "Drawer": {
+          "count": 2772,
+          "exact_accuracy": 0.8683261183261183
+        },
+        "Fridge": {
+          "count": 752,
+          "exact_accuracy": 0.8896276595744681
+        },
+        "Microwave": {
+          "count": 68,
+          "exact_accuracy": 0.7205882352941176
+        },
+        "Safe": {
+          "count": 76,
+          "exact_accuracy": 0.8947368421052632
+        }
+      },
+      "generation": {
+        "mean_generated_tokens": 171.98494623655915,
+        "mean_seconds_per_sample": 0.37138219225590907
+      }
+    }
+  },
+  "paired_comparison": {
+    "baseline": "step0",
+    "candidate": "step11193",
+    "sample_exact": {
+      "count": 3720,
+      "baseline_only_correct": 0,
+      "candidate_only_correct": 3240,
+      "both_correct": 0,
+      "neither_correct": 480,
+      "accuracy_delta": 0.8709677419354839,
+      "accuracy_delta_ci95": [
+        0.8551167214752705,
+        0.8854925541405384
+      ],
+      "ci_method": "scene_cluster_percentile_bootstrap",
+      "bootstrap_resamples": 1000,
+      "mcnemar_exact_p": 0.0
+    },
+    "pair_exact": {
+      "count": 1860,
+      "baseline_only_correct": 0,
+      "candidate_only_correct": 1474,
+      "both_correct": 0,
+      "neither_correct": 386,
+      "accuracy_delta": 0.7924731182795699,
+      "accuracy_delta_ci95": [
+        0.767288905843485,
+        0.8144893578733401
+      ],
+      "ci_method": "scene_cluster_percentile_bootstrap",
+      "bootstrap_resamples": 1000,
+      "mcnemar_exact_p": 0.0
+    },
+    "pair_outcome_counts": {
+      "candidate_fixed": 1474,
+      "both_not_exact": 386
+    }
+  },
+  "inputs": {
+    "raw_data": {
+      "path": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_clean_data/samples.jsonl",
+      "sha256": "f33c8d109aed4cf4c3058b2f2c3abfad7149e770e7969bbb1755402b7b4504bd"
+    },
+    "manifest": {
+      "path": "/root/qwen35-08b-spatial-action-ft/training/prepared/cot-100k/manifest.json",
+      "sha256": "9f12a04fd4a14a5052069e88bbd93b6d5ecf4f2e4bfd33ed386aeed5e6300999"
+    },
+    "baseline_predictions": {
+      "path": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-cot-100k/v0-20260816-102046/gpu-generation/cf-all-step0.jsonl",
+      "sha256": "0bfcf22e79583dc4daaadde045a132728c4d614493ee61e4716fa8b342339be3"
+    },
+    "candidate_predictions": {
+      "path": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-cot-100k/v0-20260816-102046/gpu-generation/cf-all-step11193.jsonl",
+      "sha256": "1cc4e7d184aaf57ef8a39afd80173a8fec3933f3cfd41486e992876fe962a830"
+    }
+  }
+}

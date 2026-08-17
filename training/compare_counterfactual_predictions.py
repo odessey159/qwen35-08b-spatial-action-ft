@@ -5,6 +5,7 @@ import csv
 import hashlib
 import json
 import math
+import random
 from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import NormalDist
@@ -51,6 +52,50 @@ def wilson_interval(successes: int, total: int, confidence: float = 0.95) -> lis
     return [max(0.0, center - margin), min(1.0, center + margin)]
 
 
+def _percentile(values: list[float], probability: float) -> float:
+    if not values:
+        raise ValueError("Cannot take a percentile of an empty list")
+    ordered = sorted(values)
+    position = (len(ordered) - 1) * probability
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return ordered[lower]
+    weight = position - lower
+    return ordered[lower] * (1 - weight) + ordered[upper] * weight
+
+
+def clustered_bootstrap_interval(
+    outcomes: list[bool] | list[float],
+    cluster_ids: list[str],
+    confidence: float = 0.95,
+    resamples: int = 1000,
+    seed: int = 42,
+) -> list[float]:
+    """Percentile CI from resampling whole scene clusters with replacement."""
+
+    if len(outcomes) != len(cluster_ids) or not outcomes:
+        raise ValueError("Clustered outcomes must be non-empty and aligned")
+    if resamples <= 0:
+        raise ValueError("resamples must be positive")
+    grouped: dict[str, list[float]] = defaultdict(list)
+    for cluster, outcome in zip(cluster_ids, outcomes):
+        grouped[cluster].append(float(outcome))
+    clusters = sorted(grouped)
+    rng = random.Random(seed)
+    estimates: list[float] = []
+    for _ in range(resamples):
+        total = 0.0
+        count = 0
+        for _ in clusters:
+            values = grouped[rng.choice(clusters)]
+            total += sum(values)
+            count += len(values)
+        estimates.append(total / count)
+    alpha = (1 - confidence) / 2
+    return [_percentile(estimates, alpha), _percentile(estimates, 1 - alpha)]
+
+
 def _logsumexp(values: Iterable[float]) -> float:
     values = list(values)
     if not values:
@@ -75,7 +120,11 @@ def mcnemar_exact_p(baseline_only: int, candidate_only: int) -> float:
 
 
 def paired_difference(
-    baseline: list[bool], candidate: list[bool], confidence: float = 0.95
+    baseline: list[bool],
+    candidate: list[bool],
+    confidence: float = 0.95,
+    cluster_ids: list[str] | None = None,
+    bootstrap_resamples: int = 1000,
 ) -> dict[str, Any]:
     if len(baseline) != len(candidate) or not baseline:
         raise ValueError("Paired outcomes must be non-empty and have equal lengths")
@@ -85,14 +134,28 @@ def paired_difference(
     neither_correct = len(baseline) - baseline_only - candidate_only - both_correct
     differences = [float(right) - float(left) for left, right in zip(baseline, candidate)]
     mean = sum(differences) / len(differences)
-    if len(differences) > 1:
+    if cluster_ids is not None:
+        interval = clustered_bootstrap_interval(
+            differences,
+            cluster_ids,
+            confidence=confidence,
+            resamples=bootstrap_resamples,
+        )
+        interval_method = "scene_cluster_percentile_bootstrap"
+    elif len(differences) > 1:
         variance = sum((value - mean) ** 2 for value in differences) / (
             len(differences) - 1
         )
         standard_error = math.sqrt(variance / len(differences))
+        z = NormalDist().inv_cdf(0.5 + confidence / 2)
+        interval = [
+            max(-1.0, mean - z * standard_error),
+            min(1.0, mean + z * standard_error),
+        ]
+        interval_method = "normal_approximation"
     else:
-        standard_error = 0.0
-    z = NormalDist().inv_cdf(0.5 + confidence / 2)
+        interval = [mean, mean]
+        interval_method = "singleton"
     return {
         "count": len(baseline),
         "baseline_only_correct": baseline_only,
@@ -100,10 +163,9 @@ def paired_difference(
         "both_correct": both_correct,
         "neither_correct": neither_correct,
         "accuracy_delta": mean,
-        "accuracy_delta_ci95": [
-            max(-1.0, mean - z * standard_error),
-            min(1.0, mean + z * standard_error),
-        ],
+        "accuracy_delta_ci95": interval,
+        "ci_method": interval_method,
+        "bootstrap_resamples": bootstrap_resamples if cluster_ids is not None else None,
         "mcnemar_exact_p": mcnemar_exact_p(baseline_only, candidate_only),
     }
 
@@ -249,6 +311,8 @@ def compare(
     generated_tokens: dict[str, list[int]] = {label: [] for label in labels}
     seconds: dict[str, list[float]] = {label: [] for label in labels}
     pair_rows_output: list[dict[str, Any]] = []
+    sample_clusters: list[str] = []
+    pair_clusters: list[str] = []
 
     for group, raw_pair in pairs:
         raw_pair = sorted(
@@ -270,6 +334,12 @@ def compare(
                 "; ".join(gold_by_id[str(row["sample_id"])]) for row in raw_pair
             ),
         }
+        scenes = {str(metadata(row).get("scene_id", "")) for row in raw_pair}
+        if len(scenes) != 1 or "" in scenes:
+            raise ValueError(f"{group}: counterfactual pair must have one scene_id")
+        pair_scene = next(iter(scenes))
+        pair_clusters.append(pair_scene)
+        sample_clusters.extend([pair_scene] * len(raw_pair))
         for label in labels:
             member_exact: list[bool] = []
             predicted_pair: list[tuple[str, ...]] = []
@@ -331,9 +401,15 @@ def compare(
             "samples": len(sample_outcomes[label]),
             "pairs": len(pair_outcomes[label]),
             "sample_exact_accuracy": sample_successes / len(sample_outcomes[label]),
-            "sample_exact_ci95": wilson_interval(sample_successes, len(sample_outcomes[label])),
+            "sample_exact_ci95": clustered_bootstrap_interval(
+                sample_outcomes[label], sample_clusters
+            ),
             "pair_exact_accuracy": pair_successes / len(pair_outcomes[label]),
-            "pair_exact_ci95": wilson_interval(pair_successes, len(pair_outcomes[label])),
+            "pair_exact_ci95": clustered_bootstrap_interval(
+                pair_outcomes[label], pair_clusters
+            ),
+            "ci_method": "scene_cluster_percentile_bootstrap",
+            "bootstrap_resamples": 1000,
             "pair_member_outcomes": {
                 "both_correct": correct_members_per_pair.count(2),
                 "one_member_correct": correct_members_per_pair.count(1),
@@ -413,10 +489,14 @@ def compare(
             "baseline": baseline_label,
             "candidate": candidate_label,
             "sample_exact": paired_difference(
-                sample_outcomes[baseline_label], sample_outcomes[candidate_label]
+                sample_outcomes[baseline_label],
+                sample_outcomes[candidate_label],
+                cluster_ids=sample_clusters,
             ),
             "pair_exact": paired_difference(
-                pair_outcomes[baseline_label], pair_outcomes[candidate_label]
+                pair_outcomes[baseline_label],
+                pair_outcomes[candidate_label],
+                cluster_ids=pair_clusters,
             ),
             "pair_outcome_counts": dict(
                 Counter(row["comparison"] for row in pair_rows_output)
@@ -460,6 +540,7 @@ def write_outputs(
         "",
         f"验证集包含 {summary['scope']['complete_counterfactual_pairs']} 个完整反事实对（{summary['scope']['counterfactual_samples']} 条样本）；每一对的 gold action 均不同。",
         f"这些样本来自 {summary['scope']['counterfactual_scenes']} 个场景；其中同指令 {summary['scope']['same_instruction_pairs']} 对、同场景 {summary['scope']['same_scene_pairs']} 对、open/closed 状态对 {summary['scope']['open_closed_state_pairs']} 对、图像哈希不同 {summary['scope']['distinct_image_hash_pairs']} 对。",
+        "95% CI 使用按 `scene_id` 重采样的 1000 次 percentile cluster bootstrap。",
         "",
         "## 总体结果",
         "",
