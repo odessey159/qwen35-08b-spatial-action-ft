@@ -1,0 +1,33 @@
+{
+  "max_steps": 20,
+  "results": [
+    {
+      "name": "b2_ga2_gc_w4",
+      "batch": 2,
+      "accum": 2,
+      "gc": true,
+      "workers": 4,
+      "return_code": 0,
+      "timed_out": false,
+      "wall_time_seconds": 171.6,
+      "oom": false,
+      "log_path": "/root/qwen35-08b-spatial-action-ft/run_logs/cot100k_benchmark_smoke/logs/b2_ga2_gc_w4.log",
+      "logging_path": "/root/qwen35-08b-spatial-action-ft/run_logs/cot100k_benchmark_smoke/outputs/b2_ga2_gc_w4/v0-20260816-094810/logging.jsonl",
+      "train_runtime": 21.8803,
+      "train_samples_per_second": 3.656,
+      "train_steps_per_second": 0.914,
+      "train_loss": 0.10825478,
+      "reported_memory_gib": 8.38,
+      "last_step": "20/20",
+      "last_train_speed_s_per_it": 1.08702,
+      "gpu_samples": 23,
+      "gpu_utilization_mean": 36.26,
+      "gpu_utilization_max": 63.0,
+      "memory_used_mean_mib": 8700.3,
+      "memory_used_max_mib": 9072.0,
+      "power_mean_w": 206.48,
+      "power_max_w": 243.63
+    }
+  ],
+  "fastest": "b2_ga2_gc_w4"
+}

@@ -1,0 +1,27 @@
+{
+  "extends": "config.cot.server.json",
+  "model": {
+    "output_dir": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-cot-100k"
+  },
+  "data": {
+    "source_dataset": "../exp0/new100k_clean_data/samples.jsonl",
+    "source_format": "raw_simulator",
+    "prepared_dir": "prepared/cot-100k",
+    "response_format": "cot",
+    "expected_source_samples": 99489
+  },
+  "training": {
+    "max_steps": null,
+    "num_train_epochs": 1.0,
+    "per_device_train_batch_size": 8,
+    "per_device_eval_batch_size": 8,
+    "gradient_accumulation_steps": 1,
+    "gradient_checkpointing": false,
+    "dataloader_num_workers": 4,
+    "eval_on_start": true,
+    "eval_steps": 1000,
+    "save_steps": 1000,
+    "save_total_limit": 10,
+    "logging_steps": 10
+  }
+}

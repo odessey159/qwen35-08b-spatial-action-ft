@@ -1,0 +1,111 @@
+{
+  "shard_root": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_shard_data",
+  "shard_count": 8,
+  "input_samples": 100000,
+  "clean_samples": 99489,
+  "failed_samples": 511,
+  "failure_counts": {
+    "preprocess_no_relevant_state": 1,
+    "same_image_and_instruction_map_to_multiple_gold_plans": 510
+  },
+  "collision_inputs": 255,
+  "counterfactual_groups": 18265,
+  "incomplete_counterfactual_groups": {},
+  "generation_rejections_not_present_in_samples": {
+    "camera_teleport_failed": 722,
+    "insufficient_visible_objects": 91934,
+    "no_feasible_candidate": 41236,
+    "required_object_not_visible": 5,
+    "setup_failed:clean": 266,
+    "simulation_failed:clean": 12,
+    "simulation_failed:counterfactual_put": 14822,
+    "simulation_failed:open_close": 6,
+    "simulation_failed:pickup": 188,
+    "simulation_failed:slice": 36,
+    "simulation_failed:toggle": 49
+  },
+  "source_reports": [
+    {
+      "shard": 0,
+      "samples": 12502,
+      "reported_samples": 12500,
+      "expected_samples": 12502,
+      "unreported_tail_samples": 2,
+      "reported_instruction_collisions": 41,
+      "complete": false,
+      "samples_sha256": "776f3de486e003f98da6cd854f687003e55c3fa5f23def83295272985cc777a6"
+    },
+    {
+      "shard": 1,
+      "samples": 12502,
+      "reported_samples": 12500,
+      "expected_samples": 12502,
+      "unreported_tail_samples": 2,
+      "reported_instruction_collisions": 38,
+      "complete": false,
+      "samples_sha256": "7872ad04ef77b902e4072b34e175fab25329206662a8f20310df20a001f8946c"
+    },
+    {
+      "shard": 2,
+      "samples": 12502,
+      "reported_samples": 12500,
+      "expected_samples": 12502,
+      "unreported_tail_samples": 2,
+      "reported_instruction_collisions": 44,
+      "complete": false,
+      "samples_sha256": "6ec0344e86409476c8fb1c6839fbb3c4296fd7ce9a1f264dfb3fb49c144e68bc"
+    },
+    {
+      "shard": 3,
+      "samples": 12502,
+      "reported_samples": 12500,
+      "expected_samples": 12502,
+      "unreported_tail_samples": 2,
+      "reported_instruction_collisions": 22,
+      "complete": false,
+      "samples_sha256": "c21ed8eaf38dafdeadda3072ee5ef1b38d42f34397bdee4275e329f01ac3a025"
+    },
+    {
+      "shard": 4,
+      "samples": 12498,
+      "reported_samples": 12400,
+      "expected_samples": 12498,
+      "unreported_tail_samples": 98,
+      "reported_instruction_collisions": 30,
+      "complete": false,
+      "samples_sha256": "c04c7d97aff54f33388b7b1bc2d178b4183cff6fb8e001999365d58c02c281f9"
+    },
+    {
+      "shard": 5,
+      "samples": 12498,
+      "reported_samples": 12400,
+      "expected_samples": 12498,
+      "unreported_tail_samples": 98,
+      "reported_instruction_collisions": 26,
+      "complete": false,
+      "samples_sha256": "51775ed1855aa5f2edfcf66748443beb360698c4692c3eed93239d143c78cdde"
+    },
+    {
+      "shard": 6,
+      "samples": 12498,
+      "reported_samples": 12400,
+      "expected_samples": 12498,
+      "unreported_tail_samples": 98,
+      "reported_instruction_collisions": 29,
+      "complete": false,
+      "samples_sha256": "4874274a06c5e64ed553592b6d126031c8b5b745869c3c9da06ffc90651cf550"
+    },
+    {
+      "shard": 7,
+      "samples": 12498,
+      "reported_samples": 12400,
+      "expected_samples": 12498,
+      "unreported_tail_samples": 98,
+      "reported_instruction_collisions": 25,
+      "complete": false,
+      "samples_sha256": "2a1e121a92832d66b9aead1bd17cdd63ce98db2aac93a5448c2b4ecee79169ca"
+    }
+  ],
+  "samples_path": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_clean_data/samples.jsonl",
+  "samples_sha256": "f33c8d109aed4cf4c3058b2f2c3abfad7149e770e7969bbb1755402b7b4504bd"
+}

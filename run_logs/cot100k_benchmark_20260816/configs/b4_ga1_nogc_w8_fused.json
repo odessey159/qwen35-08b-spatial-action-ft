@@ -1,0 +1,28 @@
+{
+  "extends": "/root/qwen35-08b-spatial-action-ft/training/config.cot.100k.server.json",
+  "model": {
+    "output_dir": "/root/qwen35-08b-spatial-action-ft/run_logs/cot100k_benchmark_20260816/outputs/b4_ga1_nogc_w8_fused"
+  },
+  "data": {
+    "prepared_dir": "/root/qwen35-08b-spatial-action-ft/training/prepared/cot-100k-benchmark"
+  },
+  "training": {
+    "max_steps": 30,
+    "num_train_epochs": null,
+    "per_device_train_batch_size": 4,
+    "per_device_eval_batch_size": 4,
+    "gradient_accumulation_steps": 1,
+    "gradient_checkpointing": false,
+    "dataloader_num_workers": 8,
+    "eval_on_start": false,
+    "eval_strategy": "no",
+    "save_strategy": "no",
+    "save_only_model": true,
+    "logging_steps": 1,
+    "warmup_ratio": 0.0,
+    "report_to": "none",
+    "dataloader_persistent_workers": true,
+    "dataloader_prefetch_factor": 4,
+    "optim": "adamw_torch_fused"
+  }
+}

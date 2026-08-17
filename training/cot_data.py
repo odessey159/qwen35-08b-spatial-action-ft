@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+import random
+from collections import defaultdict
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -11,7 +13,6 @@ from exp0.generate_cot_data import (
     parse_response_sections,
     render_response,
 )
-from exp0.prompts import system_prompt
 from exp0.subgoal_abstraction import (
     abstract_subgoals,
     parse_primitive_action,
@@ -24,6 +25,7 @@ from .data import _choose_validation_indices, _read_jsonl, _write_json, _write_j
 
 FORMATS = {"action", "plan_action", "cot"}
 SOURCE_FORMATS = {"cot", "raw_simulator"}
+TRAINING_LABEL_MODES = {"aligned", "permuted_triplet"}
 
 
 @dataclass(frozen=True)
@@ -57,6 +59,15 @@ def _expected_source_samples(data: dict[str, Any]) -> int | None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise TrainingConfigError("data.expected_source_samples must be a positive integer")
+    return value
+
+
+def _training_label_mode(data: dict[str, Any]) -> str:
+    value = data.get("training_label_mode", "aligned")
+    if not isinstance(value, str) or value not in TRAINING_LABEL_MODES:
+        raise TrainingConfigError(
+            f"data.training_label_mode must be one of {sorted(TRAINING_LABEL_MODES)}"
+        )
     return value
 
 
@@ -251,15 +262,21 @@ def _format_weights(config: dict[str, Any]) -> tuple[str, dict[str, float]]:
 
 
 def _system(allowed: list[str], response_format: str) -> str:
-    if response_format == "action":
-        return system_prompt(allowed, inline_example=True, response_format="action")
-    sections = "<state>、<plan>、<action>" if response_format == "cot" else "<plan>、<action>"
+    sections = {
+        "action": "<action>",
+        "plan_action": "<plan>、<action>",
+        "cot": "<state>、<plan>、<action>",
+    }[response_format]
     return (
         "你是一个室内家务动作规划助手。\n"
         f"回答必须且只能依次包含 {sections}，不要添加其他段落。\n"
         + ("<state> 只写 simulator-verified 的任务相关空间事实。\n" if response_format == "cot" else "")
-        + "<plan> 写高层子目标，不要逐条改写底层动作。\n"
-        "<action> 每行写一个 动作名(物体名)。动作名只能从以下集合选择："
+        + (
+            "<plan> 写高层子目标，不要逐条改写底层动作。\n"
+            if response_format in {"cot", "plan_action"}
+            else ""
+        )
+        + "<action> 每行写一个 动作名(物体名)。动作名只能从以下集合选择："
         + "、".join(allowed)
         + "。"
     )
@@ -303,10 +320,71 @@ def _swift_row(
     }
 
 
+def _permuted_train_samples(
+    samples: list[CotSample], train_indices: list[int], seed: int
+) -> tuple[dict[int, CotSample], dict[str, int]]:
+    """Attach another training example's coherent label triplet to each input.
+
+    Labels are grouped by their complete state/plan/action signature and then
+    rotated by the largest group size. This gives a deterministic categorical
+    derangement: every label triplet is used exactly once, no input receives an
+    identical triplet, and the three sections remain internally consistent.
+    """
+    if len(train_indices) < 2:
+        raise TrainingConfigError(
+            "permuted_triplet needs at least two training examples"
+        )
+    rng = random.Random(seed)
+    signature_groups: dict[
+        tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]], list[int]
+    ] = defaultdict(list)
+    for index in train_indices:
+        sample = samples[index]
+        signature_groups[(sample.state, sample.plan, sample.actions)].append(index)
+    grouped_indices = list(signature_groups.values())
+    for values in grouped_indices:
+        rng.shuffle(values)
+    rng.shuffle(grouped_indices)
+    largest_group = max(len(values) for values in grouped_indices)
+    if largest_group * 2 > len(train_indices):
+        raise TrainingConfigError(
+            "permuted_triplet cannot avoid identical labels because one label "
+            "triplet occupies more than half of the training split"
+        )
+    cycle = [index for values in grouped_indices for index in values]
+    donor_by_receiver = {
+        receiver: cycle[(position + largest_group) % len(cycle)]
+        for position, receiver in enumerate(cycle)
+    }
+    result: dict[int, CotSample] = {}
+    identical_triplets = 0
+    identical_actions = 0
+    for receiver_index in train_indices:
+        receiver = samples[receiver_index]
+        donor = samples[donor_by_receiver[receiver_index]]
+        identical_triplets += int(
+            (receiver.state, receiver.plan, receiver.actions)
+            == (donor.state, donor.plan, donor.actions)
+        )
+        identical_actions += int(receiver.actions == donor.actions)
+        result[receiver_index] = replace(
+            receiver,
+            state=donor.state,
+            plan=donor.plan,
+            actions=donor.actions,
+        )
+    return result, {
+        "permuted_train_samples": len(train_indices),
+        "identical_label_triplets_after_permutation": identical_triplets,
+        "identical_action_sequences_after_permutation": identical_actions,
+    }
+
+
 def prepare_cot_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool) -> dict[str, Any]:
     data = require_mapping(config.get("data"), "data")
     response_format, weights = _format_weights(config)
     source_format = _source_format(data)
+    training_label_mode = _training_label_mode(data)
     source = resolve_path(base_dir, str(data.get("source_dataset", "")))
     if not source.is_file():
         raise FileNotFoundError(f"Source dataset does not exist: {source}")
@@ -374,13 +452,21 @@ def prepare_cot_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool)
     ordered_val = [index for index in range(len(samples)) if index in val_indices]
     if not train_indices:
         raise TrainingConfigError("Training split is empty")
-    _write_jsonl(train_path, (_swift_row(samples[index], allowed, response_format, weights) for index in train_indices))
+    label_stats: dict[str, int] = {}
+    train_samples = {index: samples[index] for index in train_indices}
+    if training_label_mode == "permuted_triplet":
+        train_samples, label_stats = _permuted_train_samples(
+            samples, train_indices, seed + 104729
+        )
+    _write_jsonl(train_path, (_swift_row(train_samples[index], allowed, response_format, weights) for index in train_indices))
     _write_jsonl(val_path, (_swift_row(samples[index], allowed, response_format, weights) for index in ordered_val))
     manifest = {
         "source_dataset": str(source),
         "source_sha256": _source_sha256(source),
         "source_format": source_format,
         "response_format": response_format,
+        "training_label_mode": training_label_mode,
+        "training_label_permutation": label_stats,
         "section_loss_weights": weights,
         "seed": seed,
         "validation_ratio_requested": ratio,
@@ -397,7 +483,7 @@ def prepare_cot_dataset(config: dict[str, Any], base_dir: Path, overwrite: bool)
 
 def _validate_prepared_source(
     data: dict[str, Any], base_dir: Path, output: Path
-) -> None:
+) -> dict[str, Any]:
     source = resolve_path(base_dir, str(data.get("source_dataset", "")))
     if not source.is_file():
         raise FileNotFoundError(f"Source dataset does not exist: {source}")
@@ -422,6 +508,14 @@ def _validate_prepared_source(
             "Prepared data is stale because the source dataset changed; "
             "run prepare --overwrite before validate or train"
         )
+    configured_label_mode = _training_label_mode(data)
+    recorded_label_mode = manifest.get("training_label_mode", "aligned")
+    if recorded_label_mode != configured_label_mode:
+        raise TrainingConfigError(
+            "Prepared training_label_mode does not match the config; "
+            "run prepare --overwrite"
+        )
+    return manifest
 
 
 def validate_cot_prepared_dataset(config: dict[str, Any], base_dir: Path) -> dict[str, int]:

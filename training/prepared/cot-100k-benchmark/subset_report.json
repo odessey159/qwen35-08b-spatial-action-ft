@@ -1,0 +1,9 @@
+{
+  "source_dir": "/root/qwen35-08b-spatial-action-ft/training/prepared/cot-100k",
+  "output_dir": "/root/qwen35-08b-spatial-action-ft/training/prepared/cot-100k-benchmark",
+  "seed": 20260816,
+  "train_count": 2048,
+  "val_count": 256,
+  "train_sha256": "273fc596482b1ae2b346f3e8563aac5fa4eb6b5bd50afb482d4e2aeb35949368",
+  "val_sha256": "3a07b9879644217d57683bdd0b8cee4d7448e3b6649b4578a0f9a8d3b77c0cbd"
+}

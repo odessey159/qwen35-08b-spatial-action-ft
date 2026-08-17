@@ -1,0 +1,10 @@
+{
+  "source_dir": "/root/qwen35-08b-spatial-action-ft/training/prepared/cot-100k",
+  "output_dir": "/root/qwen35-08b-spatial-action-ft/training/prepared/cot-100k-longest",
+  "seed": 20260816,
+  "strategy": "longest",
+  "train_count": 1024,
+  "val_count": 256,
+  "train_sha256": "be0e7a9b750484917ff000d90191118ba7272b53d9f928a9be3b7471d1fbd448",
+  "val_sha256": "14c0a9bda8bec5401bfa8513e9ecccc5c971ff0502d50805b2e86b071776f11d"
+}

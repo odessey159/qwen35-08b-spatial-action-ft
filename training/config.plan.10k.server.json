@@ -1,0 +1,18 @@
+{
+  "extends": "config.cot.10k.server.json",
+  "model": {
+    "output_dir": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-plan-10k"
+  },
+  "data": {
+    "prepared_dir": "prepared/plan-10k",
+    "response_format": "plan_action"
+  },
+  "training": {
+    "section_loss_weights": {
+      "$replace": {
+        "plan": 0.42857142857142855,
+        "action": 0.5714285714285714
+      }
+    }
+  }
+}

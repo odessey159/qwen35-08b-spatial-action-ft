@@ -1,0 +1,10 @@
+{
+  "extends": "config.cot.10k.server.json",
+  "model": {
+    "output_dir": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-cot-10k-format-only"
+  },
+  "data": {
+    "prepared_dir": "prepared/cot-10k-format-only",
+    "training_label_mode": "permuted_triplet"
+  }
+}

@@ -17,8 +17,9 @@ Qwen3.5-0.8B 的 bf16 SFT。默认方案为全参数微调，同时保留 LoRA �
 - 按 `scene_id` 和 `counterfactual_group` 的连通分组切分，避免同场景或同一反事实对跨越
   train/validation。
 - Exp-A、Exp-B 和 Exp-C 始终在 `<action>` 中保留完全相同的 primitive action sequence。
-- full-CoT 使用 `state=0.3 / plan=0.3 / action=0.4` 的非二值 `loss_scale`；plan-only 使用
-  `plan=0.4 / action=0.6`。这两种配置关闭 Liger kernel，以保留分段权重。
+- Exp-C 使用 `state=0.3 / plan=0.3 / action=0.4` 的非二值 `loss_scale`；Exp-B 删除
+  state 后保留 C 的 `plan:action=3:4` 相对权重，即 `plan=3/7 / action=4/7`；Exp-A
+  使用 `action=1.0`。三组都关闭 Liger kernel，以保留同一套分段 loss 机制。
 - prepared JSONL 为每个连续 assistant 区块写入一个标量 `loss_scale`；ms-swift 的 Swift
   backend 会在 tokenize 前合并这些连续区块，从而保持单次生成的输出形态与分段权重对应。
 - LoRA 替代方案使用 `all-linear`，覆盖 Qwen3.5 的混合注意力线性层。
@@ -53,14 +54,19 @@ micro batch 2、梯度累积 2，有效 batch 为 4；输出写入 `outputs/qwen
 
 无论哪套配置，三个组件全为 `true` 都会被启动器拒绝。
 
-三组对照由 `data.response_format` 控制，并使用独立的 prepared/output 目录：
+三组对照由 `data.response_format` 控制，并使用独立的 prepared/output 目录。A/B 配置
+直接继承对应规模的 C 配置，因此除 target、target 对应的 loss 权重以及 prepared/output
+目录外，数据源、split、seed、模型、全参微调策略和训练超参数都与 C 相同：
 
 | 实验 | 配置 | tuner | assistant 目标 |
 |---|---|---|---|
-| Exp-A action | `config.action.server.json` | 全参数 | `<action>` |
-| Exp-B full-CoT | `config.cot.server.json` | 全参数 | `<state>` + `<plan>` + `<action>` |
-| Exp-C plan-only | `config.plan.server.json` | 全参数 | `<plan>` + `<action>` |
-| full-CoT LoRA 备选 | `config.lora.cot.server.json` | LoRA | 与 full-CoT 相同 |
+| Exp-A Action-only | `config.action.10k.server.json` | 全参数 | `<action>` |
+| Exp-B Plan + Action | `config.plan.10k.server.json` | 全参数 | `<plan>` + `<action>` |
+| Exp-C State + Plan + Action | `config.cot.10k.server.json` | 全参数 | `<state>` + `<plan>` + `<action>` |
+
+100K 版本分别是 `config.action.100k.server.json`、`config.plan.100k.server.json` 和
+`config.cot.100k.server.json`，继承关系与 10K 完全相同。旧的无规模后缀配置仍保留为
+240 条开发数据的快速测试配置，不用于正式三组比较。
 
 `<plan>` 是高层任务分解，`<action>` 才保存原始 primitive action。Exp 0 evaluator 优先只从
 `<action>...</action>` 抽取动作，同时保留对旧 `<plan>` action 输出的兼容回退。测试时使用
@@ -128,6 +134,16 @@ generation shard 中精确选择 10,000 条，并且以完整 scene 为选择单
 counterfactual group 做 90/10 train/val 切分。训练跑 1 个 epoch，step 0 先执行一次 val，
 之后每 250 optimizer steps 做一次 val 并保存 checkpoint，最多保留 10 个 checkpoint。
 
+正式 A/B 对照分别使用 `config.action.10k.server.json` 与 `config.plan.10k.server.json`。
+二者直接 `extends` C 的 `config.cot.10k.server.json`；因此 C 后续若修改 batch、epoch、
+learning rate、eval/save cadence 等公共训练设置，A/B 会自动继承，不需要手工同步三份配置。
+
+`config.cot.format-only.10k.server.json` 是不可省略的格式归因对照。它复用完全相同的
+10K 输入、并查集 split、超参和真实 validation，但在 **train split 内**把完整
+`state/plan/action` 标签三元组做确定性无自配错排。三段一起移动以维持合法结构和
+plan/action 内部一致性；每个标签三元组恰好使用一次，且不会回配给原样本。该 arm 的
+validation 分数代表仅靠格式适配和数据先验可获得的收益，不能用主实验分数代替。
+
 ```bash
 .venv-train/bin/python -m training.select_raw_subset \
   --shard-root exp0/new100k_shard_data \
@@ -142,6 +158,17 @@ counterfactual group 做 90/10 train/val 切分。训练跑 1 个 epoch，step 0
   --config training/config.cot.10k.server.json validate
 .venv-train/bin/python -m training.cli \
   --config training/config.cot.10k.server.json train
+```
+
+服务器空闲后，format-only 必须单独准备、验证并训练：
+
+```bash
+.venv-train/bin/python -m training.cli \
+  --config training/config.cot.format-only.10k.server.json prepare --overwrite
+.venv-train/bin/python -m training.cli \
+  --config training/config.cot.format-only.10k.server.json validate
+.venv-train/bin/python -m training.cli \
+  --config training/config.cot.format-only.10k.server.json train
 ```
 
 需要后台运行并保留统一日志时，使用：
@@ -162,37 +189,42 @@ cd /root/qwen35-08b-spatial-action-ft
 bash training/setup_server.sh
 ```
 
-准备并核验 Exp-A 数据：
+准备并核验 Exp-A（Action-only）数据：
 
 ```bash
 .venv-train/bin/python -m training.cli \
-  --config training/config.action.server.json prepare --overwrite
+  --config training/config.action.10k.server.json prepare --overwrite
 .venv-train/bin/python -m training.cli \
-  --config training/config.action.server.json validate
-.venv-train/bin/python -m training.cli check-runtime
+  --config training/config.action.10k.server.json validate
+.venv-train/bin/python -m training.cli \
+  --config training/config.action.10k.server.json show-command
+.venv-train/bin/python -m training.cli \
+  --config training/config.action.10k.server.json train
 ```
 
-先审阅完整命令，再训练 Exp-A：
+准备、核验并训练 Exp-B（Plan + Action）：
 
 ```bash
 .venv-train/bin/python -m training.cli \
-  --config training/config.action.server.json show-command
+  --config training/config.plan.10k.server.json prepare --overwrite
 .venv-train/bin/python -m training.cli \
-  --config training/config.action.server.json train
+  --config training/config.plan.10k.server.json validate
+.venv-train/bin/python -m training.cli \
+  --config training/config.plan.10k.server.json show-command
+.venv-train/bin/python -m training.cli \
+  --config training/config.plan.10k.server.json train
 ```
 
-full-CoT 的主方案使用全参数微调：
+Exp-C（State + Plan + Action）对应命令为：
 
 ```bash
 .venv-train/bin/python -m training.cli \
-  --config training/config.cot.server.json prepare --overwrite
+  --config training/config.cot.10k.server.json prepare --overwrite
 .venv-train/bin/python -m training.cli \
-  --config training/config.cot.server.json validate
+  --config training/config.cot.10k.server.json validate
 .venv-train/bin/python -m training.cli \
-  --config training/config.cot.server.json train
+  --config training/config.cot.10k.server.json train
 ```
-
-Exp-C plan-only 消融只需把上述 full-CoT 配置换成 `training/config.plan.server.json`。
 
 切换到 LoRA 时无需重新准备数据：
 

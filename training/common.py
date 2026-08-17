@@ -14,7 +14,13 @@ def _merge_config(base: dict[str, Any], override: dict[str, Any]) -> dict[str, A
     for key, value in override.items():
         if key == "extends":
             continue
-        if isinstance(value, dict) and isinstance(result.get(key), dict):
+        if isinstance(value, dict) and "$replace" in value:
+            if set(value) != {"$replace"}:
+                raise TrainingConfigError(
+                    f"Config replacement for '{key}' must contain only '$replace'"
+                )
+            result[key] = value["$replace"]
+        elif isinstance(value, dict) and isinstance(result.get(key), dict):
             result[key] = _merge_config(result[key], value)
         else:
             result[key] = value

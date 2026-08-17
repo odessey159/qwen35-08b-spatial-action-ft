@@ -1,6 +1,11 @@
 state=finished
 exit_code=1
 started_at=2026-08-15T15:51:31+00:00
-finished_at=2026-08-16T01:50:02+00:00
+paused_at=2026-08-16T03:46:33+00:00
+resumed_at=2026-08-16T03:54:50+00:00
+resumed_again_at=2026-08-16T07:53:34+00:00
+finished_at=2026-08-16T09:16:31+00:00
 workers=8
 target_samples=100000
+resume_from=94592
+report_interval_samples=100

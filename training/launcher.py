@@ -140,6 +140,20 @@ def build_swift_command(config: dict[str, Any], base_dir: Path) -> list[str]:
     }
     for name, value in simple_options.items():
         _option(command, name, _bool_text(value) if isinstance(value, bool) else value)
+    for name in (
+        "eval_strategy",
+        "save_strategy",
+        "save_only_model",
+        "dataloader_persistent_workers",
+        "dataloader_prefetch_factor",
+        "torch_compile",
+        "torch_compile_backend",
+        "torch_compile_mode",
+        "optim",
+    ):
+        if name in training and training[name] is not None:
+            value = training[name]
+            _option(command, name, _bool_text(value) if isinstance(value, bool) else value)
     _option(command, "attn_impl", training.get("attn_impl", "flash_attention_2"))
     _option(command, "report_to", training.get("report_to", "tensorboard"))
     _option(command, "output_dir", model["output_dir"])

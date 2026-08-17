@@ -1,0 +1,94 @@
+{
+  "seed": 42,
+  "available_samples": 69879,
+  "selected_samples": 10000,
+  "whole_scene_selection": true,
+  "selected_scenes": 914,
+  "selected_counterfactual_groups": 1256,
+  "shard_counts": {
+    "0": 1406,
+    "1": 1383,
+    "2": 1178,
+    "3": 1137,
+    "4": 1031,
+    "5": 1291,
+    "6": 1370,
+    "7": 1204
+  },
+  "task_group_counts": {
+    "clean": 2190,
+    "counterfactual_put": 2512,
+    "open_close": 1574,
+    "pickup": 2194,
+    "slice": 679,
+    "toggle": 851
+  },
+  "sources": [
+    {
+      "shard": 0,
+      "path": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_shard_data/shard_0/samples.jsonl",
+      "samples": 8694,
+      "reported_samples": 8694,
+      "unreported_tail_samples": 0,
+      "sha256": "a0fe74b01d09be0e9bfbdaf679d83d81ee394ab59e50393a598a41e9a6976aa1"
+    },
+    {
+      "shard": 1,
+      "path": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_shard_data/shard_1/samples.jsonl",
+      "samples": 8885,
+      "reported_samples": 8885,
+      "unreported_tail_samples": 0,
+      "sha256": "70ad71c87f5e463acdf205870fe546fc0345fb53555a2066e17d441e9f7cc4eb"
+    },
+    {
+      "shard": 2,
+      "path": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_shard_data/shard_2/samples.jsonl",
+      "samples": 8723,
+      "reported_samples": 8723,
+      "unreported_tail_samples": 0,
+      "sha256": "0c9800e129918de6339d478869660bd7a09e460d79e870277ad06f23409e69f2"
+    },
+    {
+      "shard": 3,
+      "path": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_shard_data/shard_3/samples.jsonl",
+      "samples": 8606,
+      "reported_samples": 8605,
+      "unreported_tail_samples": 1,
+      "sha256": "e1a5b081b491bb1098dda489794e390bf0af9ef47f9c400b55f94fdfb2f710d0"
+    },
+    {
+      "shard": 4,
+      "path": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_shard_data/shard_4/samples.jsonl",
+      "samples": 8805,
+      "reported_samples": 8805,
+      "unreported_tail_samples": 0,
+      "sha256": "7453d596b6722439f90fcbca04bde5b554b814b6dd726e0145ed612d6186447f"
+    },
+    {
+      "shard": 5,
+      "path": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_shard_data/shard_5/samples.jsonl",
+      "samples": 8716,
+      "reported_samples": 8716,
+      "unreported_tail_samples": 0,
+      "sha256": "8ffcd5453163b3501083eb433618181bc7dd7a748b8f2d48fa988f145fd4061c"
+    },
+    {
+      "shard": 6,
+      "path": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_shard_data/shard_6/samples.jsonl",
+      "samples": 8755,
+      "reported_samples": 8755,
+      "unreported_tail_samples": 0,
+      "sha256": "4fd03c49f052203f14c8aeca1011bf3ad955ff330adc6f54b65de4615658c288"
+    },
+    {
+      "shard": 7,
+      "path": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_shard_data/shard_7/samples.jsonl",
+      "samples": 8695,
+      "reported_samples": 8694,
+      "unreported_tail_samples": 1,
+      "sha256": "74dcb59637c1ba9cc1fb96791e500814b8ac37b6f2d8fc9b5cc3f468753264bf"
+    }
+  ],
+  "output": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_10k_data/samples.jsonl",
+  "output_sha256": "fe12d02e4c382f005c5c6979fd06a420ffea3c5f4ece8849cbd53b6300c2bfe0"
+}
