@@ -26,7 +26,7 @@ finish() {
 trap finish EXIT
 
 while true; do
-  data_status=$(cat run_logs/procthor_val_5k_linux64.status 2>/dev/null || true)
+  data_status=$(cat run_logs/procthor_val_5k_fast8.status 2>/dev/null || true)
   case "$data_status" in
     complete*) break ;;
     failed*)
@@ -35,14 +35,6 @@ while true; do
       ;;
   esac
   sleep 60
-done
-
-while true; do
-  training_status=$(cat run_logs/cot100k_format_only_retry.status 2>/dev/null || true)
-  case "$training_status" in
-    running*|waiting*) sleep 60 ;;
-    *) break ;;
-  esac
 done
 
 run_dir=outputs/qwen35-08b-cot-100k/v0-20260816-102046

@@ -84,6 +84,26 @@ class CleanRawShardsTests(unittest.TestCase):
                 {"simulation_failed": 4},
             )
 
+    def test_resolves_persisted_wrong_image_relative_to_its_shard(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            shard = root / "shards" / "shard_0"
+            images = shard / "images"
+            images.mkdir(parents=True)
+            (images / "a.png").write_bytes(b"image-a")
+            (images / "b.png").write_bytes(b"image-b")
+            row = self._row("a", "images/a.png", ["PickupObject(Apple)"])
+            row["wrong_image"] = "images/b.png"
+            (shard / "samples.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+            (shard / "generation_report.json").write_text(
+                json.dumps({"sample_count": 1, "rejections": {}}), encoding="utf-8"
+            )
+
+            clean_raw_shards(root / "shards", root / "clean", 1, False)
+
+            cleaned = json.loads((root / "clean" / "samples.jsonl").read_text(encoding="utf-8"))
+            self.assertEqual(Path(cleaned["wrong_image"]), (images / "b.png").resolve())
+
     def test_accepts_complete_unreported_tail_after_finalization_failure(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

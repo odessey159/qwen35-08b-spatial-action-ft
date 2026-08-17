@@ -1,0 +1,38 @@
+{
+  "seed": 2042,
+  "source": "procthor",
+  "revision": "439193522244720b86d8c81cde2e51e3a4d150cf",
+  "split": "val",
+  "num_scenes": 10,
+  "output_dir": "procthor_val_cloud_smoke_data",
+  "shard_output_root": "procthor_val_cloud_smoke_shard_data",
+  "render": {
+    "width": 672,
+    "height": 672,
+    "field_of_view": 90,
+    "visibility_distance": 5.0,
+    "grid_size": 0.25,
+    "rotate_step_degrees": 45
+  },
+  "generation": {
+    "report_interval_samples": 1,
+    "max_views_per_scene": 25,
+    "max_samples_per_scene": 12,
+    "camera_horizons": [0, 30],
+    "camera_rotations": [0, 45, 90, 135, 180, 225, 270, 315],
+    "counterfactual_pairs": 1,
+    "group_quotas": {
+      "pickup": 1,
+      "clean": 0,
+      "heat": 0,
+      "toggle": 0,
+      "slice": 0,
+      "open_close": 1
+    }
+  },
+  "spatial": {
+    "axis_threshold_m": 0.15,
+    "close_threshold_m": 1.5,
+    "far_threshold_m": 3.0
+  }
+}

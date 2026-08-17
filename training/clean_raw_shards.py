@@ -233,6 +233,12 @@ def clean_raw_shards(
             if not image.is_absolute():
                 image = shard_dir / image
             normalized["image"] = str(image.resolve())
+            wrong_image_value = normalized.get("wrong_image")
+            if isinstance(wrong_image_value, str) and wrong_image_value.strip():
+                wrong_image = Path(wrong_image_value).expanduser()
+                if not wrong_image.is_absolute():
+                    wrong_image = shard_dir / wrong_image
+                normalized["wrong_image"] = str(wrong_image.resolve())
             metadata = normalized["meta"]
             counterfactual_group = metadata.get("counterfactual_group")
             if counterfactual_group not in (None, ""):
