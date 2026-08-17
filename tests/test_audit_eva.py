@@ -106,6 +106,9 @@ class AuditEvaTests(unittest.TestCase):
         self.assertEqual(structure["conditions"]["all"]["strict_structure_valid"], 1.0)
         self.assertEqual(pairs["evaluated_pairs"], 1)
         self.assertEqual(pairs["pair_exact_accuracy"], 1.0)
+        self.assertEqual(pairs["sample_exact_accuracy"], 1.0)
+        self.assertEqual(pairs["one_member_correct_pairs"], 0)
+        self.assertEqual(pairs["zero_members_correct_pairs"], 0)
         self.assertEqual(pairs["same_plan_rate"], 1.0)
         self.assertEqual(pairs["same_action_sequence_rate"], 0.0)
 

@@ -4,7 +4,7 @@
 
 1. 训练已完成 `2250/2250` step；完整 1000 条 validation 的总 loss 从 `0.438532` 降至 `0.008684`，token accuracy 从 `73.72%` 升至 `98.77%`。
 2. 原始 Qwen3.5-0.8B 权重已复制到本地，并作为 step 0 在相同的 8 条 validation 样本上完成 CPU float32 前向。0→250 时，`state/plan/action body loss` 分别下降 `90.82% / 99.97% / 97.05%`；`state format loss` 却从 `0.477653` **升至** `2.459163`。因此这组直接对照不支持“首段大幅下降主要是学会 CoT/XML 格式”，更符合目标正文 token 被迅速拟合，尤其是 plan/action。
-3. 但固定 8 条的 step-0 `weighted approx=0.049365`，仅为完整 1000 条日志 `0.438532` 的 `11.26%`，说明基础模型 loss 有强烈难例/长尾；分段数字只能作为同样本趋势证据。并且 teacher forcing 下的正文拟合也可能来自语言/模板记忆，不能等同于视觉规划能力。format-only arm 仍是正式因果归因不可裁的对照组。
+3. 固定 8 条的 step-0 all-causal diagnostic 为 `0.049365`，而 trainer 日志为 `0.438532`。后续 100K 全量扫描证明这种差异主要来自聚合口径，不能归因于“难例长尾”。分段数字只作为同样本逐 token CE 趋势；teacher forcing 下的正文拟合也可能来自语言/模板记忆，不能等同于视觉规划能力。format-only arm 仍是正式因果归因不可裁的对照组。
 4. 总 loss 绝对降幅的 `96.63%` 发生在 step 0→250；step 250 后当前最终 loss 几乎全部集中在 `<state>`，plan/action 已饱和。state format 在 250→750 下降后又反弹，最终仍高于 step 0；因此最后瓶颈更像 state 边界/状态表达，而不是 action 生成。
 5. 数据 split 审计通过：并查集跨 split component=0，train/val `scene_id` 重叠=0，CF group 重叠=0；最大 component 仅 `12/10000=0.12%`，没有出现 56% 巨型连通分量。
 6. 文本捷径很强：train-fitted text oracle 为 `72.60%`（coverage `99.30%`），validation Bayes text oracle 为 `74.00%`。相对可部署的 train oracle，视觉通道最多只剩 `27.40` 个百分点的净增益空间，报告中必须明说。
@@ -74,13 +74,13 @@
 | 1500 | 98.51% | 100.00% | 100.00% | 2/8 | 8/8 | 8/8 |
 | 2250 | 98.76% | 100.00% | 100.00% | 4/8 | 8/8 | 8/8 |
 
-### ms-swift 加权口径复核
+### 聚合口径诊断
 
-ms-swift 计算 `Σ(section_weight × token_CE) / 全部 causal token 数`。system/user/image/空 think token 的 loss weight 是 0，但仍进入分母。最终 checkpoint 的 8 条小样本重算为 `0.008705`，与完整 validation 日志 `0.008684` 仅差 `0.24%`，说明 token 对齐和分母实现已经复核通过。
+这里的数值计算 `Σ(section_weight × token_CE) / 全部 causal token 数`，只应视为 all-causal diagnostic。后续 100K 的 9951 条全量 step-0 扫描证明该全局分母不能复刻 Swift trainer 的逐 batch eval loss；最终 checkpoint 的偶然接近不能证明分母实现等价。三段逐 token CE 的同样本趋势仍有效，但 diagnostic 与 trainer loss 不应直接对齐。
 
-| step | 8-sample weighted approx | logged 1000-sample eval loss | 说明 |
+| step | 8-sample all-causal diagnostic | logged 1000-sample eval loss | 说明 |
 |---:|---:|---:|:---|
-| 0 | 0.049365 | 0.438532 | 仅为全量值 11.26%；基础模型难例/长尾明显 |
+| 0 | 0.049365 | 0.438532 | 聚合口径不同，不可直接比较 |
 | 250 | 0.012646 | 0.023159 | 小样本低估早期难例 |
 | 750 | 0.008039 | 0.013179 | 小样本低估早期难例 |
 | 1500 | 0.008658 | 0.008905 | 已接近完整集 |
@@ -118,7 +118,7 @@ ms-swift 计算 `Σ(section_weight × token_CE) / 全部 causal token 数`。sys
 ## 已实现与待运行
 
 - `models/Qwen3.5-0.8B-original`：从服务器复制的原始 Qwen 权重；13 个运行时文件，主权重 `1,746,942,600` bytes，与服务器一致并已成功加载 473 个 tensors。
-- `training/evaluate_section_losses.py`：按 checkpoint 输出 state/plan/action 的 full/body/format loss、PPL、token accuracy、EM，并复刻 ms-swift 加权分母；现支持 safetensors index/shard，并允许 `--base-model-dir` 将原始权重作为 step 0。
+- `training/evaluate_section_losses.py`：按 checkpoint 输出 state/plan/action 的 full/body/format loss、PPL、token accuracy、EM，并输出显式标注的聚合诊断；支持 safetensors index/shard、CUDA，以及 `--base-model-dir` step 0。
 - `training/audit_eva.py`：输出结构/占位符、CF pair-level、DSU split、scene/CF 重叠和 text oracle 审计。
 - `training/generate_cpu_predictions.py`：本机 CPU 按 manifest 取完整 CF 对并生成预测。
 - `training/config.cot.format-only.10k.server.json`：format-only train 标签三元组确定性无自配错排，validation 保持真实标签。

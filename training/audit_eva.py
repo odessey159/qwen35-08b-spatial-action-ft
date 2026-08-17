@@ -309,6 +309,9 @@ def counterfactual_pair_audit(
     }
     evaluated = 0
     pair_exact = 0
+    member_exact = 0
+    one_member_correct = 0
+    zero_members_correct = 0
     same_plan = 0
     same_actions = 0
     gold_discriminative = 0
@@ -319,7 +322,12 @@ def counterfactual_pair_audit(
         gold = [gold_actions(raw_by_id[sample_id]) for sample_id in ids]
         outputs = [predictions[sample_id] for sample_id in ids]
         predicted_actions = [tuple(parse_plan(output).actions) for output in outputs]
-        pair_exact += int(all(predicted == target for predicted, target in zip(predicted_actions, gold)))
+        matches = [predicted == target for predicted, target in zip(predicted_actions, gold)]
+        correct_members = sum(matches)
+        pair_exact += int(correct_members == 2)
+        member_exact += correct_members
+        one_member_correct += int(correct_members == 1)
+        zero_members_correct += int(correct_members == 0)
         same_plan += int(_plan_text(outputs[0]) == _plan_text(outputs[1]))
         same_actions += int(predicted_actions[0] == predicted_actions[1])
         gold_discriminative += int(gold[0] != gold[1])
@@ -332,6 +340,11 @@ def counterfactual_pair_audit(
         "evaluated_pairs": evaluated,
         "pair_coverage": evaluated / len(complete) if complete else 0.0,
         "pair_exact_accuracy": pair_exact / evaluated if evaluated else 0.0,
+        "sample_exact_accuracy": member_exact / (2 * evaluated) if evaluated else 0.0,
+        "one_member_correct_pairs": one_member_correct,
+        "one_member_correct_rate": one_member_correct / evaluated if evaluated else 0.0,
+        "zero_members_correct_pairs": zero_members_correct,
+        "zero_members_correct_rate": zero_members_correct / evaluated if evaluated else 0.0,
         "same_plan_rate": same_plan / evaluated if evaluated else 0.0,
         "same_action_sequence_rate": same_actions / evaluated if evaluated else 0.0,
         "gold_discriminative_pairs": gold_discriminative,
@@ -363,7 +376,7 @@ def write_report(result: dict[str, Any], output_dir: Path) -> None:
         "",
         "| 输出轨 | 状态 | 可否用于当前 run 归因 |",
         "|:---|:---|:---|",
-        f"| base structure / placeholder | {result['base_structure']['status']} | 历史 Exp0，仅作诊断，不能与当前 val 直接作差 |",
+        f"| base structure / placeholder | {result['base_structure']['status']} | scope: {result['base_structure'].get('scope', 'missing')} |",
         f"| format-only arm | {result['format_only_structure']['status']} | {'可以' if result['format_only_structure']['status'] == 'available' else '不可以：分数不完整（arm 已实现）'} |",
         f"| full-CoT generation | {result['full_cot_structure']['status']} | {'可以' if result['full_cot_structure']['status'] == 'available' else '仅 pilot 或缺失：不能外推完整 val'} |",
         f"| CF pair-level | {result['counterfactual_pairs']['status']} | {'可以' if result['counterfactual_pairs']['status'] == 'available' else '仅 pilot 或缺失：需覆盖全部 CF 对'} |",
@@ -393,6 +406,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--base-predictions", type=Path)
     parser.add_argument("--base-scope", default="unspecified")
+    parser.add_argument("--base-cot-contract", action="store_true")
     parser.add_argument("--current-scope", default="current_validation")
     parser.add_argument("--format-only-predictions", type=Path)
     parser.add_argument("--full-cot-predictions", type=Path)
@@ -409,7 +423,7 @@ def main() -> None:
         "text_oracle": text_oracle_audit(rows, manifest),
         "base_structure": structure_audit(
             args.base_predictions,
-            cot_contract=False,
+            cot_contract=args.base_cot_contract,
             scope=args.base_scope,
         ),
         "format_only_structure": structure_audit(

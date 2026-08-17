@@ -83,9 +83,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-pairs", type=int, default=1)
     parser.add_argument("--max-samples", type=int, default=0)
     parser.add_argument("--max-new-tokens", type=int, default=256)
+    parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu")
     parser.add_argument(
         "--dtype", choices=["float32", "bfloat16", "float16"], default="float32"
+    )
+    parser.add_argument(
+        "--attn-implementation",
+        choices=["eager", "sdpa", "flash_attention_2"],
+        default="eager",
     )
     parser.add_argument("--cpu-threads", type=int, default=8)
     parser.add_argument("--overwrite", action="store_true")
@@ -99,6 +105,8 @@ def main() -> None:
         raise FileExistsError(f"Output exists (use --overwrite): {output}")
     if args.selection == "counterfactual-pairs" and args.max_pairs <= 0:
         raise ValueError("--max-pairs must be positive")
+    if args.batch_size <= 0:
+        raise ValueError("--batch-size must be positive")
 
     import torch
     from PIL import Image
@@ -126,12 +134,13 @@ def main() -> None:
     processor = AutoProcessor.from_pretrained(
         model_path, local_files_only=True, trust_remote_code=True
     )
+    processor.tokenizer.padding_side = "left"
     model = Qwen3_5ForConditionalGeneration.from_pretrained(
         model_path,
         local_files_only=True,
         trust_remote_code=True,
         dtype=dtype,
-        attn_implementation="eager",
+        attn_implementation=args.attn_implementation,
         low_cpu_mem_usage=True,
     ).to(device)
     model.eval()
@@ -149,24 +158,29 @@ def main() -> None:
         )
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8", newline="\n") as handle:
-        for position, (source_index, sample_id, group, row) in enumerate(
-            selected, start=1
-        ):
+        for batch_start in range(0, len(selected), args.batch_size):
+            batch = selected[batch_start : batch_start + args.batch_size]
             started = time.monotonic()
-            messages, image_path = localize_row(row, project_root)
-            prompt = processor.apply_chat_template(
-                messages[:2],
-                tokenize=False,
-                add_generation_prompt=True,
-                enable_thinking=False,
-            )
-            with Image.open(image_path) as source_image:
-                encoded = processor(
-                    text=[prompt],
-                    images=[source_image.convert("RGB")],
-                    return_tensors="pt",
-                    padding=False,
+            prompts: list[str] = []
+            images: list[Any] = []
+            for _, _, _, row in batch:
+                messages, image_path = localize_row(row, project_root)
+                prompts.append(
+                    processor.apply_chat_template(
+                        messages[:2],
+                        tokenize=False,
+                        add_generation_prompt=True,
+                        enable_thinking=False,
+                    )
                 )
+                with Image.open(image_path) as source_image:
+                    images.append(source_image.convert("RGB"))
+            encoded = processor(
+                text=prompts,
+                images=images,
+                return_tensors="pt",
+                padding=True,
+            )
             inputs = {
                 key: value.to(device, dtype=dtype)
                 if value.is_floating_point()
@@ -181,25 +195,28 @@ def main() -> None:
                     do_sample=False,
                     use_cache=True,
                 )
-            new_ids = generated[0, input_length:].tolist()
-            prediction = processor.tokenizer.decode(
-                new_ids, skip_special_tokens=True
-            ).strip()
-            result = {
-                "sample_id": sample_id,
-                "source_index": source_index,
-                "counterfactual_group": group,
-                "prediction": prediction,
-                "generated_tokens": len(new_ids),
-                "device": device,
-                "dtype": args.dtype,
-                "seconds": time.monotonic() - started,
-            }
-            handle.write(json.dumps(result, ensure_ascii=False) + "\n")
+            elapsed = time.monotonic() - started
+            for batch_index, (source_index, sample_id, group, _) in enumerate(batch):
+                new_ids = generated[batch_index, input_length:].tolist()
+                prediction = processor.tokenizer.decode(
+                    new_ids, skip_special_tokens=True
+                ).strip()
+                result = {
+                    "sample_id": sample_id,
+                    "source_index": source_index,
+                    "counterfactual_group": group,
+                    "prediction": prediction,
+                    "generated_tokens": len(new_ids),
+                    "device": device,
+                    "dtype": args.dtype,
+                    "batch_size": len(batch),
+                    "seconds": elapsed / len(batch),
+                }
+                handle.write(json.dumps(result, ensure_ascii=False) + "\n")
             handle.flush()
             print(
-                f"sample={position}/{len(selected)} id={sample_id} "
-                f"tokens={len(new_ids)} seconds={result['seconds']:.2f}",
+                f"samples={batch_start + 1}-{batch_start + len(batch)}/{len(selected)} "
+                f"batch_seconds={elapsed:.2f} seconds_per_sample={elapsed / len(batch):.2f}",
                 flush=True,
             )
     print(output, flush=True)

@@ -562,6 +562,13 @@ def evaluate_checkpoint(
             else _load_logged_eval_loss(checkpoint, checkpoint_step)
         ),
         "raw_micro_loss": raw_loss_sum / total_section_tokens,
+        # These two aggregates are diagnostics only. The trainer's reported eval loss
+        # is reduced batch-by-batch after Swift's collator/template constructs labels
+        # and loss_scale, so neither global denominator is expected to reproduce it.
+        "all_causal_weighted_diagnostic": weighted_loss_sum / all_causal_tokens,
+        "global_supervised_weighted_diagnostic": weighted_loss_sum
+        / (total_section_tokens + empty_think_tokens),
+        # Backward-compatible names retained for older reports.
         "weighted_swift_loss_approx": weighted_loss_sum / all_causal_tokens,
         "response_only_weighted_loss": weighted_loss_sum
         / (total_section_tokens + empty_think_tokens),
@@ -613,11 +620,11 @@ def write_outputs(results: list[dict[str, Any]], output_dir: Path, metadata: dic
         f"- 抽样 seed：{metadata['sample_seed']}",
         f"- 设备 / dtype：{metadata['device']} / {metadata['dtype']}",
         "- `full loss` 包含 XML 标签、换行及回合结束 token；`body loss` 只统计标签内部正文；`format loss` 是两者之差对应的结构 token。",
-        "- `weighted approx` 按 ms-swift 的实际公式 `Σ(weight × token CE) / 全部 causal token 数` 计算；system/user/image/空 think 的权重为 0，但仍进入分母。",
+        "- `all-causal diagnostic` 计算 `Σ(section weight × token CE) / 全部 causal token 数`，只用于对齐诊断，不是 trainer eval loss 的复刻；Swift 的 collator、loss_scale 与逐 batch 归约会改变实际口径。",
         "",
         "## Checkpoint 汇总",
         "",
-        "| step | logged eval loss | weighted approx | raw micro loss | seconds/sample |",
+        "| step | logged eval loss | all-causal diagnostic | raw micro loss | seconds/sample |",
         "|---:|---:|---:|---:|---:|",
     ]
     for result in results:
@@ -625,7 +632,7 @@ def write_outputs(results: list[dict[str, Any]], output_dir: Path, metadata: dic
             "| {checkpoint_step} | {logged} | {weighted} | {raw} | {seconds} |".format(
                 checkpoint_step=result["checkpoint_step"],
                 logged=_fmt(result["logged_full_validation_loss"]),
-                weighted=_fmt(result["weighted_swift_loss_approx"]),
+                weighted=_fmt(result["all_causal_weighted_diagnostic"]),
                 raw=_fmt(result["raw_micro_loss"]),
                 seconds=_fmt(result["seconds_per_sample"], 2),
             )

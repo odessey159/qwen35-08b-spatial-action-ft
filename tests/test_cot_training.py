@@ -99,12 +99,17 @@ class CotTrainingTests(unittest.TestCase):
 
     def test_format_only_arm_is_a_separate_permuted_triplet_run(self) -> None:
         repository = Path(__file__).resolve().parents[1]
-        config, _ = load_config(
-            repository / "training" / "config.cot.format-only.10k.server.json"
-        )
-        self.assertEqual(config["data"]["training_label_mode"], "permuted_triplet")
-        self.assertTrue(config["data"]["prepared_dir"].endswith("cot-10k-format-only"))
-        self.assertTrue(config["model"]["output_dir"].endswith("cot-10k-format-only"))
+        for scale in ("10k", "100k"):
+            config, _ = load_config(
+                repository / "training" / f"config.cot.format-only.{scale}.server.json"
+            )
+            self.assertEqual(config["data"]["training_label_mode"], "permuted_triplet")
+            self.assertTrue(
+                config["data"]["prepared_dir"].endswith(f"cot-{scale}-format-only")
+            )
+            self.assertTrue(
+                config["model"]["output_dir"].endswith(f"cot-{scale}-format-only")
+            )
 
     def test_benchmark_only_options_are_emitted_when_configured(self) -> None:
         repository = Path(__file__).resolve().parents[1]

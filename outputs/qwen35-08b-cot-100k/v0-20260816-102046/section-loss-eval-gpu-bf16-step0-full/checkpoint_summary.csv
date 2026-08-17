@@ -1,0 +1,2 @@
+﻿checkpoint_step,checkpoint,model_view,sample_count,device,dtype,cpu_threads,seconds,seconds_per_sample,logged_full_validation_loss,raw_micro_loss,weighted_swift_loss_approx,response_only_weighted_loss,total_section_tokens,empty_think_tokens,zero_weight_context_tokens,all_causal_tokens
+0,/model/ModelScope/Qwen/Qwen3.5-0.8B,/model/ModelScope/Qwen/Qwen3.5-0.8B,9951,cuda,bfloat16,8,1189.9449452301487,0.11958043867251017,0.42890605330467224,1.0917384247777677,0.0496239403669314,0.32885137420200833,988375,39804,5825233,6813608
