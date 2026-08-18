@@ -1,0 +1,30 @@
+[
+  {
+    "label": "before",
+    "checkpoint": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\models\\Qwen3.5-0.8B-original",
+    "sample_id": "shard_5_exp0_11451",
+    "instruction": "把 Watch 放进 Drawer。",
+    "original_prediction": "<state>\nsimulator-verified 抽屉内有一个 Watch。\n</state>\n\n<plan>\n1. 将 Watch 从抽屉中取出。\n2. 将 Watch 放入抽屉。\n</plan>\n\n<action>\nGotoLocation\nPickupObject\nPutObject\nGotoLocation\n</action>",
+    "action_given_for_description": "<action>\nGotoLocation\nPickupObject\nPutObject\nGotoLocation\n</action>",
+    "action_description": "<action_description>\n1. 前往目标位置\n2. 拿起物体\n3. 放置的物体和目标位置均未指定\n4. 前往目标位置\n</action_description>",
+    "generated_tokens": 43,
+    "seconds": 8.48399999999674,
+    "device": "cpu",
+    "dtype": "float32",
+    "decoding": "greedy"
+  },
+  {
+    "label": "after",
+    "checkpoint": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\outputs\\qwen35-08b-cot-100k\\v0-20260816-102046\\checkpoint-11193",
+    "sample_id": "shard_5_exp0_11451",
+    "instruction": "把 Watch 放进 Drawer。",
+    "original_prediction": "<state>\nDrawer is closed.\nWatch is on Dresser.\nDrawer is left of Agent.\nDrawer is below Agent.\nDrawer is near Agent.\nDresser is left of Agent.\nDresser is below Agent.\nWatch is above Agent.\nWatch is near Agent.\nDrawer is left of Dresser.\nDrawer is above Dresser.\nDrawer is near Dresser.\n</state><plan>\n1. Acquire Watch.\n2. Transport Watch to Drawer.\n3. Place Watch at Drawer.\n</plan><action>\nGotoLocation(Dresser)\nPickupObject(Watch)\nGotoLocation(Drawer)\nOpenObject(Drawer)\nPutObject(Watch,Drawer)\nCloseObject(Drawer)\n</action>",
+    "action_given_for_description": "<action>\nGotoLocation(Dresser)\nPickupObject(Watch)\nGotoLocation(Drawer)\nOpenObject(Drawer)\nPutObject(Watch,Drawer)\nCloseObject(Drawer)\n</action>",
+    "action_description": "<action_description>\n1. 前往 Dresser 位置。\n2. 拿起 Watch 物体。\n3. 前往 Drawer 位置。\n4. 打开 Drawer 物体。\n5. 将 Watch 放入 Drawer。\n6. 关闭 Drawer 物体。\n</action_description>",
+    "generated_tokens": 66,
+    "seconds": 11.735000000044238,
+    "device": "cpu",
+    "dtype": "float32",
+    "decoding": "greedy"
+  }
+]

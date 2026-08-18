@@ -1,0 +1,182 @@
+{
+  "scope": {
+    "validation_samples": 200,
+    "complete_counterfactual_pairs": 100,
+    "counterfactual_samples": 200,
+    "counterfactual_scenes": 53,
+    "gold_discriminative_pairs": 100,
+    "same_instruction_pairs": 100,
+    "same_scene_pairs": 100,
+    "open_closed_state_pairs": 100,
+    "distinct_image_hash_pairs": 100
+  },
+  "models": {
+    "训练前": {
+      "samples": 200,
+      "pairs": 100,
+      "sample_exact_accuracy": 0.0,
+      "sample_exact_ci95": [
+        0.0,
+        0.0
+      ],
+      "pair_exact_accuracy": 0.0,
+      "pair_exact_ci95": [
+        0.0,
+        0.0
+      ],
+      "ci_method": "scene_cluster_percentile_bootstrap",
+      "bootstrap_resamples": 1000,
+      "pair_member_outcomes": {
+        "both_correct": 0,
+        "one_member_correct": 0,
+        "zero_members_correct": 100
+      },
+      "strict_action_structure_valid_rate": 0.0,
+      "same_action_sequence_rate": 1.0,
+      "error_counts": {
+        "empty_or_unparseable": 200
+      },
+      "by_receptacle_state": {
+        "closed": {
+          "count": 100,
+          "exact_accuracy": 0.0
+        },
+        "open": {
+          "count": 100,
+          "exact_accuracy": 0.0
+        }
+      },
+      "by_target_object": {
+        "Drawer": {
+          "count": 160,
+          "exact_accuracy": 0.0
+        },
+        "Fridge": {
+          "count": 36,
+          "exact_accuracy": 0.0
+        },
+        "Safe": {
+          "count": 4,
+          "exact_accuracy": 0.0
+        }
+      },
+      "generation": {
+        "mean_generated_tokens": 256.0,
+        "mean_seconds_per_sample": 0.5547950241575017
+      }
+    },
+    "训练后": {
+      "samples": 200,
+      "pairs": 100,
+      "sample_exact_accuracy": 0.93,
+      "sample_exact_ci95": [
+        0.879731186534984,
+        0.9663461538461539
+      ],
+      "pair_exact_accuracy": 0.88,
+      "pair_exact_ci95": [
+        0.80391698735569,
+        0.9387755102040817
+      ],
+      "ci_method": "scene_cluster_percentile_bootstrap",
+      "bootstrap_resamples": 1000,
+      "pair_member_outcomes": {
+        "both_correct": 88,
+        "one_member_correct": 10,
+        "zero_members_correct": 2
+      },
+      "strict_action_structure_valid_rate": 1.0,
+      "same_action_sequence_rate": 0.11,
+      "error_counts": {
+        "exact": 186,
+        "redundant_open_for_open": 8,
+        "missing_open_for_closed": 3,
+        "navigation_or_target_error": 3
+      },
+      "by_receptacle_state": {
+        "closed": {
+          "count": 100,
+          "exact_accuracy": 0.95
+        },
+        "open": {
+          "count": 100,
+          "exact_accuracy": 0.91
+        }
+      },
+      "by_target_object": {
+        "Drawer": {
+          "count": 160,
+          "exact_accuracy": 0.94375
+        },
+        "Fridge": {
+          "count": 36,
+          "exact_accuracy": 0.8888888888888888
+        },
+        "Safe": {
+          "count": 4,
+          "exact_accuracy": 0.75
+        }
+      },
+      "generation": {
+        "mean_generated_tokens": 158.84,
+        "mean_seconds_per_sample": 0.3532316337595694
+      }
+    }
+  },
+  "paired_comparison": {
+    "baseline": "训练前",
+    "candidate": "训练后",
+    "sample_exact": {
+      "count": 200,
+      "baseline_only_correct": 0,
+      "candidate_only_correct": 186,
+      "both_correct": 0,
+      "neither_correct": 14,
+      "accuracy_delta": 0.93,
+      "accuracy_delta_ci95": [
+        0.879731186534984,
+        0.9663461538461539
+      ],
+      "ci_method": "scene_cluster_percentile_bootstrap",
+      "bootstrap_resamples": 1000,
+      "mcnemar_exact_p": 2.0391576462495274e-56
+    },
+    "pair_exact": {
+      "count": 100,
+      "baseline_only_correct": 0,
+      "candidate_only_correct": 88,
+      "both_correct": 0,
+      "neither_correct": 12,
+      "accuracy_delta": 0.88,
+      "accuracy_delta_ci95": [
+        0.80391698735569,
+        0.9387755102040817
+      ],
+      "ci_method": "scene_cluster_percentile_bootstrap",
+      "bootstrap_resamples": 1000,
+      "mcnemar_exact_p": 6.4623485355705244e-27
+    },
+    "pair_outcome_counts": {
+      "candidate_fixed": 88,
+      "both_not_exact": 12
+    }
+  },
+  "inputs": {
+    "raw_data": {
+      "path": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\exp0\\new100k_clean_data\\samples.jsonl",
+      "sha256": "f33c8d109aed4cf4c3058b2f2c3abfad7149e770e7969bbb1755402b7b4504bd"
+    },
+    "manifest": {
+      "path": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\outputs\\qwen35-08b-cot-100k\\v0-20260816-102046\\eval-subset-cf100\\manifest.json",
+      "sha256": "16ae1a3b09432ebcb76c7726e0bdccc779ac1ddd1313eb0b2bca90b6c4395db6"
+    },
+    "baseline_predictions": {
+      "path": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\outputs\\qwen35-08b-cot-100k\\v0-20260816-102046\\eval-subset-cf100\\predictions-step0.jsonl",
+      "sha256": "7f8cb9ea8837dc919827de14e2456e227c8f06e0b95d92ec8f76e8e48a06e361"
+    },
+    "candidate_predictions": {
+      "path": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\outputs\\qwen35-08b-cot-100k\\v0-20260816-102046\\eval-subset-cf100\\predictions-step11193.jsonl",
+      "sha256": "f6d5383d7a3763d184d59cc44eea1a64f0cdd3818f5081ac2ae5a1ab8c15d8c3"
+    }
+  }
+}

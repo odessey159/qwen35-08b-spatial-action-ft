@@ -9,7 +9,7 @@ import os
 import random
 import shutil
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -399,6 +399,7 @@ def evaluate_checkpoint(
     device_name: str,
     dtype_name: str,
     cpu_threads: int,
+    batch_size: int = 1,
     logged_eval_loss: float | None = None,
 ) -> dict[str, Any]:
     import torch
@@ -450,74 +451,120 @@ def evaluate_checkpoint(
     empty_think_tokens = 0
     all_causal_tokens = 0
 
-    for position, (source_index, row) in enumerate(rows, start=1):
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
+    pad_token_id = processor.tokenizer.pad_token_id
+    if pad_token_id is None:
+        raise ValueError("Tokenizer has no pad_token_id")
+
+    for batch_start in range(0, len(rows), batch_size):
+        row_batch = rows[batch_start : batch_start + batch_size]
         started = time.monotonic()
-        encoded, spans = encode_row(processor, row, project_root)
-        sequence_length = int(encoded["input_ids"].shape[1])
-        all_causal_tokens += sequence_length - 1
-        first_target = min(span.start for span in spans)
-        logits_to_keep = sequence_length - (first_target - 1)
+        encoded_batch = [encode_row(processor, row, project_root) for _, row in row_batch]
+        sequence_lengths = [int(encoded["input_ids"].shape[1]) for encoded, _ in encoded_batch]
+        max_sequence_length = max(sequence_lengths)
+        shifted_spans: list[list[TokenSpan]] = []
+        for sequence_length, (_, spans) in zip(sequence_lengths, encoded_batch):
+            all_causal_tokens += sequence_length - 1
+            padding = max_sequence_length - sequence_length
+            shifted_spans.append(
+                [
+                    replace(
+                        span,
+                        supervised_start=span.supervised_start + padding,
+                        start=span.start + padding,
+                        body_start=span.body_start + padding,
+                        body_end=span.body_end + padding,
+                        end=span.end + padding,
+                    )
+                    for span in spans
+                ]
+            )
+        logits_to_keep = max(
+            max_sequence_length - (min(span.start for span in spans) - 1)
+            for spans in shifted_spans
+        )
+
         model_inputs: dict[str, Any] = {}
-        for key, value in encoded.items():
-            if key in {"labels", "loss_scale"}:
-                continue
-            if hasattr(value, "to"):
-                value = value.to(device_name)
-                if getattr(value, "is_floating_point", lambda: False)():
-                    value = value.to(dtype=dtype)
+        keys = {
+            key
+            for encoded, _ in encoded_batch
+            for key in encoded
+            if key not in {"labels", "loss_scale"}
+        }
+        for key in keys:
+            values = [encoded[key] for encoded, _ in encoded_batch]
+            token_aligned = all(
+                value.ndim == 2 and int(value.shape[0]) == 1 and int(value.shape[1]) == sequence_length
+                for value, sequence_length in zip(values, sequence_lengths)
+            )
+            if token_aligned:
+                padded = []
+                for value, sequence_length in zip(values, sequence_lengths):
+                    padding = max_sequence_length - sequence_length
+                    fill = pad_token_id if key == "input_ids" else 0
+                    padded.append(functional.pad(value, (padding, 0), value=fill))
+                value = torch.cat(padded, dim=0)
+            else:
+                value = torch.cat(values, dim=0)
+            value = value.to(device_name)
+            if value.is_floating_point():
+                value = value.to(dtype=dtype)
             model_inputs[key] = value
         with torch.inference_mode():
             outputs = model(**model_inputs, logits_to_keep=logits_to_keep, use_cache=False)
-        logits = outputs.logits[0]
-        logit_start = sequence_length - int(logits.shape[0])
-        targets = encoded["input_ids"][0].to(device_name)
-
-        for span in spans:
-            weights[span.section] = span.weight
-            empty_think_tokens += span.start - span.supervised_start
-            ranges = {
-                "full": [(span.start, span.end)],
-                "body": [(span.body_start, span.body_end)],
-                "format": [(span.start, span.body_start), (span.body_end, span.end)],
-            }
-            for category, token_ranges in ranges.items():
-                positions = [
-                    token_index
-                    for start, end in token_ranges
-                    for token_index in range(start, end)
-                ]
-                logit_indices = torch.tensor(
-                    [token_index - 1 - logit_start for token_index in positions],
-                    dtype=torch.long,
-                    device=device_name,
-                )
-                if int(logit_indices.min()) < 0 or int(logit_indices.max()) >= logits.shape[0]:
-                    raise ValueError(
-                        f"{span.section}/{category}: logits_to_keep alignment failed"
+        logit_start = max_sequence_length - int(outputs.logits.shape[1])
+        for batch_index, spans in enumerate(shifted_spans):
+            logits = outputs.logits[batch_index]
+            targets = model_inputs["input_ids"][batch_index]
+            for span in spans:
+                weights[span.section] = span.weight
+                empty_think_tokens += span.start - span.supervised_start
+                ranges = {
+                    "full": [(span.start, span.end)],
+                    "body": [(span.body_start, span.body_end)],
+                    "format": [(span.start, span.body_start), (span.body_end, span.end)],
+                }
+                for category, token_ranges in ranges.items():
+                    positions = [
+                        token_index
+                        for start, end in token_ranges
+                        for token_index in range(start, end)
+                    ]
+                    logit_indices = torch.tensor(
+                        [token_index - 1 - logit_start for token_index in positions],
+                        dtype=torch.long,
+                        device=device_name,
                     )
-                target_values = targets[
-                    torch.tensor(positions, dtype=torch.long, device=device_name)
-                ]
-                selected_logits = logits.index_select(0, logit_indices).float()
-                losses = functional.cross_entropy(
-                    selected_logits,
-                    target_values,
-                    reduction="none",
-                )
-                predictions = selected_logits.argmax(dim=-1)
-                accumulators[span.section][category].update(
-                    losses.tolist(),
-                    predictions.eq(target_values).tolist(),
-                )
+                    if int(logit_indices.min()) < 0 or int(logit_indices.max()) >= logits.shape[0]:
+                        raise ValueError(
+                            f"{span.section}/{category}: logits_to_keep alignment failed"
+                        )
+                    target_values = targets[
+                        torch.tensor(positions, dtype=torch.long, device=device_name)
+                    ]
+                    selected_logits = logits.index_select(0, logit_indices).float()
+                    losses = functional.cross_entropy(
+                        selected_logits,
+                        target_values,
+                        reduction="none",
+                    )
+                    predictions = selected_logits.argmax(dim=-1)
+                    accumulators[span.section][category].update(
+                        losses.tolist(),
+                        predictions.eq(target_values).tolist(),
+                    )
         elapsed = time.monotonic() - started
-        sample_seconds.append(elapsed)
-        sample_indices.append(source_index)
+        seconds_per_sample = elapsed / len(row_batch)
+        sample_seconds.extend([seconds_per_sample] * len(row_batch))
+        sample_indices.extend(source_index for source_index, _ in row_batch)
         print(
-            f"checkpoint={checkpoint_step} sample={position}/{len(rows)} "
-            f"source_index={source_index} seconds={elapsed:.2f}",
+            f"checkpoint={checkpoint_step} samples={batch_start + 1}-"
+            f"{batch_start + len(row_batch)}/{len(rows)} batch_seconds={elapsed:.2f} "
+            f"seconds_per_sample={seconds_per_sample:.2f}",
             flush=True,
         )
-        del outputs, logits, encoded, model_inputs
+        del outputs, logits, encoded_batch, model_inputs
         gc.collect()
 
     section_rows: list[dict[str, Any]] = []
@@ -554,6 +601,7 @@ def evaluate_checkpoint(
         "device": device_name,
         "dtype": dtype_name,
         "cpu_threads": cpu_threads,
+        "batch_size": batch_size,
         "seconds": sum(sample_seconds),
         "seconds_per_sample": sum(sample_seconds) / len(sample_seconds),
         "logged_full_validation_loss": (
@@ -690,6 +738,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--dtype", choices=["float32", "bfloat16", "float16"], default="bfloat16"
     )
     parser.add_argument("--cpu-threads", type=int, default=max(1, min(8, os.cpu_count() or 1)))
+    parser.add_argument("--batch-size", type=int, default=1)
     return parser
 
 
@@ -720,6 +769,7 @@ def main() -> None:
             device_name=args.device,
             dtype_name=args.dtype,
             cpu_threads=args.cpu_threads,
+            batch_size=args.batch_size,
             logged_eval_loss=load_run_logged_eval_loss(run_dir, step),
         )
         results.append(result)
@@ -735,6 +785,7 @@ def main() -> None:
             "device": result["device"],
             "dtype": args.dtype,
             "cpu_threads": args.cpu_threads,
+            "batch_size": args.batch_size,
         }
         write_outputs(results, output_dir, metadata)
     print(output_dir / "EVA.md", flush=True)

@@ -1,0 +1,30 @@
+[
+  {
+    "label": "before",
+    "checkpoint": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\models\\Qwen3.5-0.8B-original",
+    "sample_id": "shard_5_exp0_11451",
+    "image": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\exp0\\new100k_shard_data\\shard_5\\images\\exp0_11451_closed.png",
+    "system_prompt": "你是一个室内家务动作规划助手。\n请观察输入图片，并根据目标指令，用自然语言给出完整、可执行且顺序明确的操作规划。\n规划中的每一步都必须明确指出要操作的物品或位置，并根据图片中容器当前的开启或关闭状态决定是否需要打开、关闭。\n不要使用 <state>、<plan>、<action> 或任何 XML 标签；不要输出 GotoLocation、PickupObject 等动作 API 或函数调用；不要描述分析过程。\n只输出简洁的中文编号步骤。",
+    "user_text": "目标指令：把 Watch 放进 Drawer。\n请直接给出完成任务的中文自然语言步骤。",
+    "prediction": "1. 打开抽屉\n2. 将 Watch 放入抽屉\n3. 关闭抽屉",
+    "generated_tokens": 23,
+    "seconds": 12.26600000000326,
+    "device": "cpu",
+    "dtype": "float32",
+    "decoding": "greedy"
+  },
+  {
+    "label": "after",
+    "checkpoint": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\outputs\\qwen35-08b-cot-100k\\v0-20260816-102046\\checkpoint-11193",
+    "sample_id": "shard_5_exp0_11451",
+    "image": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\exp0\\new100k_shard_data\\shard_5\\images\\exp0_11451_closed.png",
+    "system_prompt": "你是一个室内家务动作规划助手。\n请观察输入图片，并根据目标指令，用自然语言给出完整、可执行且顺序明确的操作规划。\n规划中的每一步都必须明确指出要操作的物品或位置，并根据图片中容器当前的开启或关闭状态决定是否需要打开、关闭。\n不要使用 <state>、<plan>、<action> 或任何 XML 标签；不要输出 GotoLocation、PickupObject 等动作 API 或函数调用；不要描述分析过程。\n只输出简洁的中文编号步骤。",
+    "user_text": "目标指令：把 Watch 放进 Drawer。\n请直接给出完成任务的中文自然语言步骤。",
+    "prediction": "1. Put Watch on Dresser.\n2. Open Drawer.\n3. Place Watch on Dresser.\n4. Close Drawer.\n5. Put Watch in Drawer.\n</state><plan>\n1. Acquire Watch.\n2. Transport Watch to Drawer.\n3. Place Watch at Drawer.\n</plan>",
+    "generated_tokens": 71,
+    "seconds": 21.125,
+    "device": "cpu",
+    "dtype": "float32",
+    "decoding": "greedy"
+  }
+]

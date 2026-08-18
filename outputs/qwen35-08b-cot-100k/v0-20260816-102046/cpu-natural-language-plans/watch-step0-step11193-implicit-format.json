@@ -1,0 +1,30 @@
+[
+  {
+    "label": "before",
+    "checkpoint": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\models\\Qwen3.5-0.8B-original",
+    "sample_id": "shard_5_exp0_11451",
+    "image": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\exp0\\new100k_shard_data\\shard_5\\images\\exp0_11451_closed.png",
+    "system_prompt": "你是一个室内家务动作规划助手。\n请观察输入图片，并根据目标指令，用自然语言给出完整、可执行且顺序明确的操作规划。\n规划中的每一步都必须明确指出要操作的物品或位置，并根据图片中容器当前的开启或关闭状态决定是否需要打开、关闭。\n只输出简洁的中文编号步骤。",
+    "user_text": "目标指令：把 Watch 放进 Drawer。\n请直接给出完成任务的中文自然语言步骤。",
+    "prediction": "1. 打开抽屉。\n2. 将 Watch 放入抽屉。\n3. 关闭抽屉。",
+    "generated_tokens": 26,
+    "seconds": 12.53100000001723,
+    "device": "cpu",
+    "dtype": "float32",
+    "decoding": "greedy"
+  },
+  {
+    "label": "after",
+    "checkpoint": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\outputs\\qwen35-08b-cot-100k\\v0-20260816-102046\\checkpoint-11193",
+    "sample_id": "shard_5_exp0_11451",
+    "image": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\exp0\\new100k_shard_data\\shard_5\\images\\exp0_11451_closed.png",
+    "system_prompt": "你是一个室内家务动作规划助手。\n请观察输入图片，并根据目标指令，用自然语言给出完整、可执行且顺序明确的操作规划。\n规划中的每一步都必须明确指出要操作的物品或位置，并根据图片中容器当前的开启或关闭状态决定是否需要打开、关闭。\n只输出简洁的中文编号步骤。",
+    "user_text": "目标指令：把 Watch 放进 Drawer。\n请直接给出完成任务的中文自然语言步骤。",
+    "prediction": "1. 将 Watch 放入 Drawer。\nDrawer is closed.\nWatch is on Dresser.\nDrawer is left of Agent.\nDrawer is below Agent.\nDrawer is near Agent.\nDresser is left of Agent.\nDresser is below Agent.\nWatch is above Agent.\nWatch is near Agent.\nDrawer is left of Dresser.\nDrawer is above Dresser.\nDrawer is near Dresser.\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>\n</step>",
+    "generated_tokens": 256,
+    "seconds": 49.95299999997951,
+    "device": "cpu",
+    "dtype": "float32",
+    "decoding": "greedy"
+  }
+]

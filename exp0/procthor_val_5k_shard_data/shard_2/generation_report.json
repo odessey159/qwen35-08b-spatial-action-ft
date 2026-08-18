@@ -1,0 +1,27 @@
+{
+  "seed": 2042,
+  "source": "procthor",
+  "sample_count": 1,
+  "scene_count": 1,
+  "group_counts": {
+    "clean": 1
+  },
+  "scene_counts": {
+    "procthor_val_00107": 1
+  },
+  "counterfactual_ratio": 0.0,
+  "rejections": {
+    "insufficient_visible_objects": 3
+  },
+  "complete": false,
+  "resumed": false,
+  "expected_sample_count": 1249,
+  "instruction_collision": 0,
+  "action_distribution": {
+    "CleanObject": 1
+  },
+  "goto_schema": {
+    "parent_location": 1,
+    "object_location": 0
+  }
+}

@@ -1,0 +1,17 @@
+name,key,direction,before,after,delta
+Action Sequence Exact,action_sequence_exact,higher,0.0,0.925,0.925
+CF Pair Exact,cf_pair_exact,higher,0.0,1.0,1.0
+Step Position Match Recall,step_position_match_recall,higher,0.0,0.9713656387665198,0.9713656387665198
+Step Position Match Precision,step_position_match_precision,higher,0.0,0.962882096069869,0.962882096069869
+State Fact Precision,state_fact_precision,higher,0.0,0.8798076923076923,0.8798076923076923
+State Fact Recall,state_fact_recall,higher,0.0,0.8926829268292683,0.8926829268292683
+State Fact F1,state_fact_f1,higher,0.0,0.8861985472154963,0.8861985472154963
+State Exact,state_exact,higher,0.0,0.51,0.51
+P(Action Exact | State Exact),p_action_exact_given_state_exact,higher,0.0,1.0,1.0
+P(Action Exact | State Wrong),p_action_exact_given_state_wrong,diagnostic,0.0,0.8469387755102041,0.8469387755102041
+Strict Structure Valid,strict_structure_valid,higher,0.0,1.0,1.0
+Invalid Action Vocab,invalid_action_vocab_rate,lower,0.0,0.0,0.0
+Invalid Object Vocab,invalid_object_vocab_rate,lower,0.0,0.0,0.0
+Placeholder Copy,placeholder_copy_rate,lower,0.0,0.0,0.0
+Train-fitted Text Oracle,text_oracle_action_exact,diagnostic,0.62,0.62,0.0
+Text Oracle Coverage,text_oracle_coverage,diagnostic,1.0,1.0,0.0

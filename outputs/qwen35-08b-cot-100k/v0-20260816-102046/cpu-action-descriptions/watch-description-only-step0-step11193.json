@@ -1,0 +1,30 @@
+[
+  {
+    "label": "before",
+    "checkpoint": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\models\\Qwen3.5-0.8B-original",
+    "sample_id": "shard_5_exp0_11451",
+    "instruction": "把 Watch 放进 Drawer。",
+    "image": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\exp0\\new100k_shard_data\\shard_5\\images\\exp0_11451_closed.png",
+    "system_prompt": "你是室内家务动作规划助手。\n请根据输入图像和目标指令，用中文自然语言按执行顺序说明完成任务所需的动作。\n回答必须且只能包含 <action_description>...</action_description>。\n不要输出 <state>、<plan> 或 <action>，不要输出动作代码，也不要添加其他段落。\n描述必须明确说明前往哪里、操作什么物体，以及需要打开或关闭的容器。",
+    "prediction": "<action_description>\n将 Watch 放入抽屉。\n</action_description>",
+    "generated_tokens": 19,
+    "seconds": 11.172000000020489,
+    "device": "cpu",
+    "dtype": "float32",
+    "decoding": "greedy"
+  },
+  {
+    "label": "after",
+    "checkpoint": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\outputs\\qwen35-08b-cot-100k\\v0-20260816-102046\\checkpoint-11193",
+    "sample_id": "shard_5_exp0_11451",
+    "instruction": "把 Watch 放进 Drawer。",
+    "image": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\exp0\\new100k_shard_data\\shard_5\\images\\exp0_11451_closed.png",
+    "system_prompt": "你是室内家务动作规划助手。\n请根据输入图像和目标指令，用中文自然语言按执行顺序说明完成任务所需的动作。\n回答必须且只能包含 <action_description>...</action_description>。\n不要输出 <state>、<plan> 或 <action>，不要输出动作代码，也不要添加其他段落。\n描述必须明确说明前往哪里、操作什么物体，以及需要打开或关闭的容器。",
+    "prediction": "<action_description>\nDrawer is closed.\nWatch is on Dresser.\nDrawer is left of Agent.\nDrawer is below Agent.\nDrawer is near Agent.\nDresser is left of Agent.\nDresser is below Agent.\nWatch is above Agent.\nWatch is near Agent.\nDrawer is left of Dresser.\nDrawer is above Dresser.\nDrawer is near Dresser.\n</action_description>",
+    "generated_tokens": 92,
+    "seconds": 33.65600000001723,
+    "device": "cpu",
+    "dtype": "float32",
+    "decoding": "greedy"
+  }
+]

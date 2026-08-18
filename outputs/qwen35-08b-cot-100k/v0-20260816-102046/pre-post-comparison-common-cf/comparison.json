@@ -139,23 +139,23 @@
   ],
   "inputs": {
     "raw_data": {
-      "path": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\exp0\\new100k_clean_data\\samples.jsonl",
+      "path": "/root/qwen35-08b-spatial-action-ft/exp0/new100k_clean_data/samples.jsonl",
       "sha256": "f33c8d109aed4cf4c3058b2f2c3abfad7149e770e7969bbb1755402b7b4504bd"
     },
     "prepared_validation": {
-      "path": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\training\\prepared\\cot-100k\\val.jsonl",
+      "path": "/root/qwen35-08b-spatial-action-ft/training/prepared/cot-100k/val.jsonl",
       "sha256": "bc277645463ba181ee71c340559fd08d8f9eb955540a6147446f9aeb236c689b"
     },
     "manifest": {
-      "path": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\training\\prepared\\cot-100k\\manifest.json",
+      "path": "/root/qwen35-08b-spatial-action-ft/training/prepared/cot-100k/manifest.json",
       "sha256": "9f12a04fd4a14a5052069e88bbd93b6d5ecf4f2e4bfd33ed386aeed5e6300999"
     },
     "before_predictions": {
-      "path": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\outputs\\qwen35-08b-cot-100k\\v0-20260816-102046\\gpu-generation\\cf-all-step0.jsonl",
+      "path": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-cot-100k/v0-20260816-102046/gpu-generation/cf-all-step0.jsonl",
       "sha256": "0bfcf22e79583dc4daaadde045a132728c4d614493ee61e4716fa8b342339be3"
     },
     "after_predictions": {
-      "path": "D:\\important files\\internship_file\\5\\qwen35-08b-spatial-action-ft\\outputs\\qwen35-08b-cot-100k\\v0-20260816-102046\\gpu-generation\\cf-all-step11193.jsonl",
+      "path": "/root/qwen35-08b-spatial-action-ft/outputs/qwen35-08b-cot-100k/v0-20260816-102046/gpu-generation/cf-all-step11193.jsonl",
       "sha256": "1cc4e7d184aaf57ef8a39afd80173a8fec3933f3cfd41486e992876fe962a830"
     }
   },

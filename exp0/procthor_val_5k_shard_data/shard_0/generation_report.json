@@ -1,0 +1,49 @@
+{
+  "seed": 2042,
+  "source": "procthor",
+  "sample_count": 100,
+  "scene_count": 9,
+  "group_counts": {
+    "open_close": 16,
+    "pickup": 35,
+    "toggle": 5,
+    "clean": 20,
+    "slice": 4,
+    "counterfactual_put": 20
+  },
+  "scene_counts": {
+    "procthor_val_00392": 12,
+    "procthor_val_00074": 10,
+    "procthor_val_00518": 12,
+    "procthor_val_00439": 12,
+    "procthor_val_00233": 12,
+    "procthor_val_00315": 11,
+    "procthor_val_00696": 12,
+    "procthor_val_00767": 12,
+    "procthor_val_00025": 7
+  },
+  "counterfactual_ratio": 0.2,
+  "rejections": {
+    "insufficient_visible_objects": 71,
+    "no_feasible_candidate": 1,
+    "simulation_failed:counterfactual_put": 5,
+    "simulation_failed:pickup": 1
+  },
+  "complete": false,
+  "resumed": false,
+  "expected_sample_count": 1253,
+  "instruction_collision": 0,
+  "action_distribution": {
+    "CleanObject": 20,
+    "CloseObject": 2,
+    "OpenObject": 26,
+    "PickupObject": 39,
+    "PutObject": 4,
+    "SliceObject": 4,
+    "ToggleObject": 5
+  },
+  "goto_schema": {
+    "parent_location": 54,
+    "object_location": 26
+  }
+}

@@ -37,18 +37,14 @@ while true; do
   sleep 60
 done
 
-shopt -s nullglob
-runs=(outputs/qwen35-08b-cot-100k-format-only/v0-*)
-if (( ${#runs[@]} == 0 )); then
-  printf '%s\n' "No format-only run directory found." >> "$log_file"
+checkpoint=$(find outputs/qwen35-08b-cot-100k-format-only \
+  -mindepth 2 -maxdepth 2 -type d -name checkpoint-11193 \
+  -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
+if [[ -z "$checkpoint" ]]; then
+  printf '%s\n' "No complete format-only checkpoint-11193 found." >> "$log_file"
   exit 1
 fi
-run_dir="${runs[${#runs[@]}-1]}"
-checkpoint="$run_dir/checkpoint-11193"
-if [[ ! -d "$checkpoint" ]]; then
-  printf '%s\n' "Missing expected checkpoint: $checkpoint" >> "$log_file"
-  exit 1
-fi
+run_dir=${checkpoint%/checkpoint-11193}
 
 expected=$(.venv-train/bin/python -c 'import json; print(json.load(open("training/prepared/cot-100k/manifest.json"))["validation_samples"])')
 generation_dir="$run_dir/gpu-generation"
@@ -100,4 +96,3 @@ generate a-prime "$a_prime"
   --oracle-raw-data exp0/new100k_clean_data/samples.jsonl \
   --oracle-manifest training/prepared/cot-100k/manifest.json \
   --output-dir "$run_dir/in-domain-full-val" >> "$log_file" 2>&1
-

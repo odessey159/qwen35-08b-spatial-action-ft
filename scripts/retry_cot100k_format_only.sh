@@ -19,7 +19,8 @@ finish() {
   exit_code=$?
   set +e
   if (( exit_code == 0 )); then
-    run_dir=$(find outputs/qwen35-08b-cot-100k-format-only -mindepth 1 -maxdepth 1 -type d -name 'v0-*' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
+    checkpoint=$(find outputs/qwen35-08b-cot-100k-format-only -mindepth 2 -maxdepth 2 -type d -name checkpoint-11193 -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
+    run_dir=${checkpoint%/checkpoint-11193}
     printf '%s\n' "complete run_dir=${run_dir:-unknown} finished_at=$(date -Is)" > "$status_file"
   else
     printf '%s\n' "failed exit=$exit_code finished_at=$(date -Is)" > "$status_file"

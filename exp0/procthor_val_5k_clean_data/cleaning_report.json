@@ -1,0 +1,104 @@
+{
+  "shard_root": "/root/qwen35-08b-spatial-action-ft/exp0/procthor_val_5k_cloud8_shard_data",
+  "shard_count": 8,
+  "input_samples": 5000,
+  "clean_samples": 5000,
+  "failed_samples": 0,
+  "failure_counts": {},
+  "collision_inputs": 0,
+  "counterfactual_groups": 926,
+  "incomplete_counterfactual_groups": {},
+  "generation_rejections_not_present_in_samples": {
+    "camera_teleport_failed": 36,
+    "insufficient_visible_objects": 4920,
+    "no_feasible_candidate": 2299,
+    "required_object_not_visible": 1,
+    "simulation_failed:counterfactual_put": 790,
+    "simulation_failed:pickup": 8,
+    "simulation_failed:toggle": 1
+  },
+  "source_reports": [
+    {
+      "shard": 0,
+      "samples": 628,
+      "reported_samples": 628,
+      "expected_samples": 628,
+      "unreported_tail_samples": 0,
+      "reported_instruction_collisions": 0,
+      "complete": true,
+      "samples_sha256": "a7de5e17f68c7252de12bd058f9aa988bf0c097c05f6d5a05e0b5c861a773b67"
+    },
+    {
+      "shard": 1,
+      "samples": 628,
+      "reported_samples": 628,
+      "expected_samples": 628,
+      "unreported_tail_samples": 0,
+      "reported_instruction_collisions": 0,
+      "complete": true,
+      "samples_sha256": "73c4f11036bc7a63f9878253de56bd7c2ee2242296f24258ce1a3652855cf2f5"
+    },
+    {
+      "shard": 2,
+      "samples": 628,
+      "reported_samples": 628,
+      "expected_samples": 628,
+      "unreported_tail_samples": 0,
+      "reported_instruction_collisions": 0,
+      "complete": true,
+      "samples_sha256": "55d53f506daf28b6dee078b0ad3d4f1c8bf02dcb3acca7ec4eebd0d739c027c8"
+    },
+    {
+      "shard": 3,
+      "samples": 626,
+      "reported_samples": 626,
+      "expected_samples": 626,
+      "unreported_tail_samples": 0,
+      "reported_instruction_collisions": 0,
+      "complete": true,
+      "samples_sha256": "4979fe78e13d234d85d6f3afe5d8a6db784d0bdc6205c3333ec1957a6746c673"
+    },
+    {
+      "shard": 4,
+      "samples": 625,
+      "reported_samples": 625,
+      "expected_samples": 625,
+      "unreported_tail_samples": 0,
+      "reported_instruction_collisions": 0,
+      "complete": true,
+      "samples_sha256": "8c86092488ada59eeae4be1e047617f64eaea8c6482a7c5bad9e9f02fc99d0bb"
+    },
+    {
+      "shard": 5,
+      "samples": 623,
+      "reported_samples": 623,
+      "expected_samples": 623,
+      "unreported_tail_samples": 0,
+      "reported_instruction_collisions": 0,
+      "complete": true,
+      "samples_sha256": "e971b94ad7ccc21b2e0bb4787e3ac1f1a01d82d5a38d9008d23ffdb0ba7bbaa7"
+    },
+    {
+      "shard": 6,
+      "samples": 621,
+      "reported_samples": 621,
+      "expected_samples": 621,
+      "unreported_tail_samples": 0,
+      "reported_instruction_collisions": 0,
+      "complete": true,
+      "samples_sha256": "a4e16d6f50d3fe7f7338a23216fbad4fea5bf433b443186522a167217017230e"
+    },
+    {
+      "shard": 7,
+      "samples": 621,
+      "reported_samples": 621,
+      "expected_samples": 621,
+      "unreported_tail_samples": 0,
+      "reported_instruction_collisions": 0,
+      "complete": true,
+      "samples_sha256": "b7a0a2a536ae68585a5b6604ff902d264ed1a12ca4e2d4e569d6c878ce65c733"
+    }
+  ],
+  "samples_path": "/root/qwen35-08b-spatial-action-ft/exp0/procthor_val_5k_clean_data/samples.jsonl",
+  "samples_sha256": "3e7c8993c91c590fbcb0b205ac8913f8cd05721b0cac23f1353c5cc659d0a2bd"
+}

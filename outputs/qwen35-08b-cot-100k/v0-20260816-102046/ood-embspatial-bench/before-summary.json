@@ -1,0 +1,52 @@
+{
+  "samples": 3640,
+  "correct": 1876,
+  "accuracy": 0.5153846153846153,
+  "valid_predictions": 3640,
+  "valid_prediction_rate": 1.0,
+  "by_relation": {
+    "above": {
+      "samples": 596,
+      "accuracy": 0.44798657718120805
+    },
+    "close": {
+      "samples": 612,
+      "accuracy": 0.47875816993464054
+    },
+    "far": {
+      "samples": 594,
+      "accuracy": 0.48148148148148145
+    },
+    "left": {
+      "samples": 616,
+      "accuracy": 0.7402597402597403
+    },
+    "right": {
+      "samples": 620,
+      "accuracy": 0.5758064516129032
+    },
+    "under": {
+      "samples": 602,
+      "accuracy": 0.36046511627906974
+    }
+  },
+  "by_data_source": {
+    "ai2thor": {
+      "samples": 1239,
+      "accuracy": 0.46973365617433416
+    },
+    "mp3d": {
+      "samples": 1201,
+      "accuracy": 0.5220649458784347
+    },
+    "scannet": {
+      "samples": 1200,
+      "accuracy": 0.5558333333333333
+    }
+  },
+  "checkpoint": "/model/ModelScope/Qwen/Qwen3.5-0.8B",
+  "dataset": "/root/qwen35-08b-spatial-action-ft/data/embspatial-bench/embspatial_bench.json",
+  "prompt_version": "embspatial-generation-v1",
+  "device": "cuda",
+  "dtype": "bfloat16"
+}
